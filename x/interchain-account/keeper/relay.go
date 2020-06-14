@@ -2,6 +2,8 @@ package keeper
 
 import (
 	"bytes"
+	"math"
+
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
@@ -9,7 +11,6 @@ import (
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
 	"github.com/tendermint/tendermint/crypto/tmhash"
-	"math"
 )
 
 func (k Keeper) RegisterIBCAccount(
@@ -179,9 +180,8 @@ func (k Keeper) CreateOutgoingPacket(
 		)
 
 		return k.channelKeeper.SendPacket(ctx, channelCap, packet)
-	} else {
-		return sdkerrors.Wrap(types.ErrUnsupportedChainType, chainType)
 	}
+	return sdkerrors.Wrap(types.ErrUnsupportedChainType, chainType)
 }
 
 func (k Keeper) DeserializeTx(_ sdk.Context, txBytes []byte) (types.InterchainAccountTx, error) {

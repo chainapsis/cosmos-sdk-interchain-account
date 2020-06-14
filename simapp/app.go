@@ -11,6 +11,7 @@ import (
 	tmos "github.com/tendermint/tendermint/libs/os"
 	dbm "github.com/tendermint/tm-db"
 
+	interaccount "github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdksimapp "github.com/cosmos/cosmos-sdk/simapp"
@@ -39,8 +40,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	"github.com/cosmos/cosmos-sdk/x/upgrade"
 	upgradeclient "github.com/cosmos/cosmos-sdk/x/upgrade/client"
-
-	"github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account"
 )
 
 const appName = "SimApp"
@@ -73,7 +72,7 @@ var (
 		upgrade.AppModuleBasic{},
 		evidence.AppModuleBasic{},
 		transfer.AppModuleBasic{},
-		interchain_account.AppModuleBasic{},
+		interaccount.AppModuleBasic{},
 	)
 
 	// module account permissions
@@ -128,7 +127,7 @@ type SimApp struct {
 	IBCKeeper               *ibc.Keeper // IBC Keeper must be a pointer in the app, so we can SetRouter on it correctly
 	EvidenceKeeper          evidence.Keeper
 	TransferKeeper          transfer.Keeper
-	InterchainAccountKeeper interchain_account.Keeper
+	InterchainAccountKeeper interaccount.Keeper
 
 	// make scoped keepers public for test purposes
 	ScopedIBCKeeper               capability.ScopedKeeper
@@ -160,7 +159,7 @@ func NewSimApp(
 		mint.StoreKey, distr.StoreKey, slashing.StoreKey,
 		gov.StoreKey, params.StoreKey, ibc.StoreKey, upgrade.StoreKey,
 		evidence.StoreKey, transfer.StoreKey, capability.StoreKey,
-		interchain_account.StoreKey,
+		interaccount.StoreKey,
 	)
 	tkeys := sdk.NewTransientStoreKeys(params.TStoreKey)
 	memKeys := sdk.NewMemoryStoreKeys(capability.MemStoreKey)
@@ -194,7 +193,7 @@ func NewSimApp(
 	app.CapabilityKeeper = capability.NewKeeper(appCodec, keys[capability.StoreKey], memKeys[capability.MemStoreKey])
 	scopedIBCKeeper := app.CapabilityKeeper.ScopeToModule(ibc.ModuleName)
 	scopedTransferKeeper := app.CapabilityKeeper.ScopeToModule(transfer.ModuleName)
-	scopedInterchainAccountKeeper := app.CapabilityKeeper.ScopeToModule(interchain_account.ModuleName)
+	scopedInterchainAccountKeeper := app.CapabilityKeeper.ScopeToModule(interaccount.ModuleName)
 
 	// add keepers
 	app.AccountKeeper = auth.NewAccountKeeper(
@@ -254,13 +253,13 @@ func NewSimApp(
 	)
 	transferModule := transfer.NewAppModule(app.TransferKeeper)
 
-	app.InterchainAccountKeeper = interchain_account.NewKeeper(appCodec, keys[interchain_account.StoreKey], cdc, cdc, app.IBCKeeper.ChannelKeeper, &app.IBCKeeper.PortKeeper, app.AccountKeeper, scopedInterchainAccountKeeper, app.Router())
-	interchainAccountModule := interchain_account.NewAppModule(app.InterchainAccountKeeper)
+	app.InterchainAccountKeeper = interaccount.NewKeeper(appCodec, keys[interaccount.StoreKey], cdc, cdc, app.IBCKeeper.ChannelKeeper, &app.IBCKeeper.PortKeeper, app.AccountKeeper, scopedInterchainAccountKeeper, app.Router())
+	interchainAccountModule := interaccount.NewAppModule(app.InterchainAccountKeeper)
 
 	// Create static IBC router, add transfer route, then set and seal it
 	ibcRouter := port.NewRouter()
 	ibcRouter.AddRoute(transfer.ModuleName, transferModule)
-	ibcRouter.AddRoute(interchain_account.ModuleName, interchainAccountModule)
+	ibcRouter.AddRoute(interaccount.ModuleName, interchainAccountModule)
 	app.IBCKeeper.SetRouter(ibcRouter)
 
 	// create evidence keeper with router
@@ -291,7 +290,7 @@ func NewSimApp(
 		ibc.NewAppModule(app.IBCKeeper),
 		params.NewAppModule(app.ParamsKeeper),
 		transferModule,
-		interchain_account.NewAppModule(app.InterchainAccountKeeper),
+		interaccount.NewAppModule(app.InterchainAccountKeeper),
 	)
 
 	// During begin block slashing happens after distr.BeginBlocker so that
@@ -313,7 +312,7 @@ func NewSimApp(
 		capability.ModuleName, auth.ModuleName, distr.ModuleName, staking.ModuleName, bank.ModuleName,
 		slashing.ModuleName, gov.ModuleName, mint.ModuleName, crisis.ModuleName,
 		ibc.ModuleName, genutil.ModuleName, evidence.ModuleName, transfer.ModuleName,
-		interchain_account.ModuleName,
+		interaccount.ModuleName,
 	)
 
 	app.mm.RegisterInvariants(&app.CrisisKeeper)

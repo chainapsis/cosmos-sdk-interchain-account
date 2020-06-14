@@ -2,6 +2,7 @@ package interchain_account
 
 import (
 	"fmt"
+
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
