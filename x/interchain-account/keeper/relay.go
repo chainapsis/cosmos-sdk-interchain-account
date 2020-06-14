@@ -19,11 +19,8 @@ func (k Keeper) RegisterIBCAccount(
 	salt string,
 ) error {
 	identifier := types.GetIdentifier(sourcePort, sourceChannel)
-	address, err := k.GenerateAddress(identifier, salt)
-	if err != nil {
-		return err
-	}
-	err = k.CreateAccount(ctx, address, identifier)
+	address := k.GenerateAddress(identifier, salt)
+	err := k.CreateAccount(ctx, address, identifier)
 	if err != nil {
 		return err
 	}
@@ -67,8 +64,8 @@ func (k Keeper) CreateAccount(ctx sdk.Context, address sdk.AccAddress, identifie
 }
 
 // Determine account's address that will be created.
-func (k Keeper) GenerateAddress(identifier string, salt string) ([]byte, error) {
-	return tmhash.SumTruncated([]byte(identifier + salt)), nil
+func (k Keeper) GenerateAddress(identifier string, salt string) []byte {
+	return tmhash.SumTruncated([]byte(identifier + salt))
 }
 
 func (k Keeper) CreateInterchainAccount(ctx sdk.Context, sourcePort, sourceChannel, salt string) error {
