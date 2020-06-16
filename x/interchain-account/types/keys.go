@@ -17,6 +17,10 @@ const (
 	QuerierRoute = ModuleName
 )
 
+var (
+	KeyPrefixRegisteredAccount = []byte("register")
+)
+
 func GetIdentifier(portID, channelID string) string {
 	return fmt.Sprintf("%s/%s/", portID, channelID)
 }

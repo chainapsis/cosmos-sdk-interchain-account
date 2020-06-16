@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account/types"
+	"github.com/cosmos/cosmos-sdk/store/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	channel "github.com/cosmos/cosmos-sdk/x/ibc/04-channel"
@@ -42,6 +43,7 @@ func (k Keeper) CreateAccount(ctx sdk.Context, address sdk.AccAddress, identifie
 	k.accountKeeper.SetAccount(ctx, account)
 
 	store := ctx.KVStore(k.storeKey)
+	store = prefix.NewStore(store, types.KeyPrefixRegisteredAccount)
 	// Save the identifier for each address to check where the interchain account is made from.
 	store.Set(address, []byte(identifier))
 
@@ -226,6 +228,7 @@ func (k Keeper) AuthenticateTx(ctx sdk.Context, tx types.InterchainAccountTx, id
 	}
 
 	store := ctx.KVStore(k.storeKey)
+	store = prefix.NewStore(store, types.KeyPrefixRegisteredAccount)
 
 	for _, signer := range signers {
 		// Check where the interchain account is made from.
