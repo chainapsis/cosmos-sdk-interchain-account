@@ -239,15 +239,12 @@ func (am AppModule) OnRecvPacket(
 		return nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "cannot unmarshal interchain account packet data: %s", err.Error())
 	}
 
-	switch data := data.(type) {
+	err := am.keeper.OnRecvPacket(ctx, packet, data)
+
+	switch data.(type) {
 	case RegisterIBCAccountPacketData:
 		acknowledgement := RegisterIBCAccountPacketAcknowledgement{
-			Success: true,
-		}
-		if err := am.keeper.RegisterIBCAccount(ctx, packet.SourcePort, packet.SourceChannel, data.Salt); err != nil {
-			acknowledgement = RegisterIBCAccountPacketAcknowledgement{
-				Success: false,
-			}
+			Success: err == nil,
 		}
 
 		if err := am.keeper.PacketExecuted(ctx, packet, acknowledgement.GetBytes()); err != nil {
@@ -257,21 +254,15 @@ func (am AppModule) OnRecvPacket(
 			Events: ctx.EventManager().Events().ToABCIEvents(),
 		}, nil
 	case RunTxPacketData:
-		txData, err := am.keeper.DeserializeTx(ctx, data.TxBytes)
-		if err != nil {
-			return nil, err
-		}
 		acknowledgement := RunTxPacketAcknowledgement{
 			Code: 0,
 		}
-		if err := am.keeper.RunTx(ctx, packet.SourcePort, packet.SourceChannel, txData); err != nil {
-			// TODO: handle sdk error's code
+		if err != nil {
 			acknowledgement = RunTxPacketAcknowledgement{
 				Code: 1,
 			}
-
-			ctx.EventManager().EmitEvent(sdk.NewEvent("interchain_account_tx_failed", sdk.NewAttribute("error", err.Error())))
 		}
+
 		if err := am.keeper.PacketExecuted(ctx, packet, acknowledgement.GetBytes()); err != nil {
 			return nil, err
 		}

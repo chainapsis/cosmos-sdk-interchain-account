@@ -246,3 +246,29 @@ func (k Keeper) RunMsg(ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error) {
 
 	return hander(ctx, msg)
 }
+
+func (k Keeper) OnRecvPacket(ctx sdk.Context, packet channeltypes.Packet, data types.InterchainAccountPacket) error {
+	switch data := data.(type) {
+	case types.RegisterIBCAccountPacketData:
+		err := k.RegisterIBCAccount(ctx, packet.SourcePort, packet.SourceChannel, data.Salt)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	case types.RunTxPacketData:
+		txData, err := k.DeserializeTx(ctx, data.TxBytes)
+		if err != nil {
+			return err
+		}
+
+		err = k.RunTx(ctx, packet.SourcePort, packet.SourceChannel, txData)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	default:
+		return types.ErrUnknownPacketData
+	}
+}
