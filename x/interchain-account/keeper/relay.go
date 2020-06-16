@@ -31,30 +31,14 @@ func (k Keeper) RegisterIBCAccount(
 
 func (k Keeper) CreateAccount(ctx sdk.Context, address sdk.AccAddress, identifier string) error {
 	account := k.accountKeeper.GetAccount(ctx, address)
-	// Don't block even if there is normal account,
-	// because attackers can distrupt to create an interchain account
-	// by sending some assets to estimated address in advance.
+	// TODO: Discuss the vulnerabilities when creating a new account only if the old account does not exist
+	// Attackers can interrupt creating accounts by sending some assets before the packet is delivered.
+	// So it is needed to check that the account is not created from users.
+	// Returns an error only if the account was created by other chain.
+	// We need to discuss how we can judge this case.
 	if account != nil {
-		if account.GetSequence() != 0 || account.GetPubKey() != nil {
-			// If account is interchain account or is usable by someone.
-			return sdkerrors.Wrap(types.ErrAccountAlreadyExist, account.String())
-		}
-		err := account.SetSequence(1)
-		if err != nil {
-			return err
-		}
-	} else {
-		account = k.accountKeeper.NewAccountWithAddress(ctx, address)
-		err := account.SetSequence(1)
-		if err != nil {
-			return err
-		}
+		return sdkerrors.Wrap(types.ErrAccountAlreadyExist, account.String())
 	}
-
-	// Interchain accounts have the sequence "1" and nil public key.
-	// Sequence never be increased without signing tx and sending this tx.
-	// But, it is impossible to send tx without publishing the public key.
-	// So, accounts that have the sequence "1" and nill public key are explicitly interchain accounts.
 	k.accountKeeper.SetAccount(ctx, account)
 
 	store := ctx.KVStore(k.storeKey)
