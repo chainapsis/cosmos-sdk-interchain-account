@@ -5,7 +5,6 @@ import (
 
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/x/capability"
-	channel "github.com/cosmos/cosmos-sdk/x/ibc/04-channel"
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
 
@@ -18,7 +17,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	port "github.com/cosmos/cosmos-sdk/x/ibc/05-port"
-	porttypes "github.com/cosmos/cosmos-sdk/x/ibc/05-port/types"
 	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
 )
@@ -131,25 +129,7 @@ func (am AppModule) OnChanOpenInit(
 	counterparty channeltypes.Counterparty,
 	version string,
 ) error {
-	if order != ibctypes.ORDERED {
-		return types.ErrInvalidOrder
-	}
-
-	boundPort := am.keeper.GetPort(ctx)
-	if boundPort != portID {
-		return sdkerrors.Wrapf(porttypes.ErrInvalidPort, "invalid port: %s, expected %s", portID, boundPort)
-	}
-
-	// TODO: Check version
-	// if version != types.Version {
-	// 	return sdkerrors.Wrapf(porttypes.ErrInvalidPort, "invalid version: %s, expected %s", version, "ics20-1")
-	// }
-
-	if err := am.keeper.ClaimCapability(ctx, chanCap, ibctypes.ChannelCapabilityPath(portID, channelID)); err != nil {
-		return sdkerrors.Wrap(channel.ErrChannelCapabilityNotFound, err.Error())
-	}
-
-	return nil
+	return am.keeper.OnChanOpenInit(ctx, order, connectionHops, portID, channelID, chanCap, counterparty, version)
 }
 
 func (am AppModule) OnChanOpenTry(
@@ -163,32 +143,7 @@ func (am AppModule) OnChanOpenTry(
 	version,
 	counterpartyVersion string,
 ) error {
-	if order != ibctypes.ORDERED {
-		return types.ErrInvalidOrder
-	}
-
-	boundPort := am.keeper.GetPort(ctx)
-	if boundPort != portID {
-		return sdkerrors.Wrapf(porttypes.ErrInvalidPort, "invalid port: %s, expected %s", portID, boundPort)
-	}
-
-	// TODO: Check version
-	// if version != types.Version {
-	// 	return sdkerrors.Wrapf(porttypes.ErrInvalidPort, "invalid version: %s, expected %s", version, "ics20-1")
-	// }
-
-	// TODO: Check counterparty version
-	// if counterpartyVersion != types.Version {
-	// 	return sdkerrors.Wrapf(porttypes.ErrInvalidPort, "invalid counterparty version: %s, expected %s", counterpartyVersion, "ics20-1")
-	// }
-
-	// Claim channel capability passed back by IBC module
-	if err := am.keeper.ClaimCapability(ctx, chanCap, ibctypes.ChannelCapabilityPath(portID, channelID)); err != nil {
-		return sdkerrors.Wrap(channel.ErrChannelCapabilityNotFound, err.Error())
-	}
-
-	// TODO: escrow
-	return nil
+	return am.keeper.OnChanOpenTry(ctx, order, connectionHops, portID, channelID, chanCap, counterparty, version, counterpartyVersion)
 }
 
 func (am AppModule) OnChanOpenAck(
