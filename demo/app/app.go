@@ -9,6 +9,7 @@ import (
 	tmos "github.com/tendermint/tendermint/libs/os"
 	dbm "github.com/tendermint/tm-db"
 
+	intertx "github.com/chainapsis/cosmos-sdk-interchain-account/x/inter-tx"
 	ia "github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -72,6 +73,7 @@ var (
 		evidence.AppModuleBasic{},
 		transfer.AppModuleBasic{},
 		ia.AppModuleBasic{},
+		intertx.AppModuleBasic{},
 	)
 
 	// module account permissions
@@ -122,6 +124,7 @@ type DemoApp struct {
 	evidenceKeeper          evidence.Keeper
 	transferKeeper          transfer.Keeper
 	interchainAccountKeeper ia.Keeper
+	interTxKeeper           intertx.Keeper
 
 	// make scoped keepers public for test purposes
 	scopedIBCKeeper      capability.ScopedKeeper
@@ -150,7 +153,7 @@ func NewDemoApp(
 		mint.StoreKey, distr.StoreKey, slashing.StoreKey,
 		gov.StoreKey, params.StoreKey, ibc.StoreKey, upgrade.StoreKey,
 		evidence.StoreKey, transfer.StoreKey, capability.StoreKey,
-		ia.StoreKey,
+		ia.StoreKey, intertx.StoreKey,
 	)
 	tkeys := sdk.NewTransientStoreKeys(params.TStoreKey)
 	memKeys := sdk.NewMemoryStoreKeys(capability.MemStoreKey)
@@ -263,6 +266,8 @@ func NewDemoApp(
 	evidenceKeeper.SetRouter(evidenceRouter)
 	app.evidenceKeeper = *evidenceKeeper
 
+	app.interTxKeeper = intertx.NewKeeper(appCodec, cdc, keys[intertx.StoreKey], app.interchainAccountKeeper)
+
 	// NOTE: Any module instantiated in the module manager that is later modified
 	// must be passed by reference here.
 	app.mm = module.NewManager(
@@ -282,6 +287,7 @@ func NewDemoApp(
 		params.NewAppModule(app.paramsKeeper),
 		transferModule,
 		ia.NewAppModule(app.interchainAccountKeeper),
+		intertx.NewAppModule(appCodec, app.interTxKeeper),
 	)
 
 	// During begin block slashing happens after distr.BeginBlocker so that

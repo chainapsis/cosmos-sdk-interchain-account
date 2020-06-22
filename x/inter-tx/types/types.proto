@@ -1,0 +1,37 @@
+syntax = "proto3";
+package cosmos_sdk_interchain_account.x.inter_tx.v1;
+
+option go_package = "github.com/chainapsis/cosmos-sdk-inter/x/inter-staking/types";
+
+import "third_party/proto/gogoproto/gogo.proto";
+
+message MsgRegister {
+    // the port on which the packet will be sent
+    string source_port = 1 [
+        (gogoproto.moretags) = "yaml:\"source_port\""
+    ];
+    // the channel by which the packet will be sent
+    string source_channel = 2 [
+        (gogoproto.moretags) = "yaml:\"source_channel\""
+    ];
+    bytes sender = 3 [
+        (gogoproto.casttype) = "github.com/cosmos/cosmos-sdk/types.AccAddress"
+    ];
+}
+
+message MsgRunTx {
+    // the port on which the packet will be sent
+    string source_port = 1 [
+        (gogoproto.moretags) = "yaml:\"source_port\""
+    ];
+    // the channel by which the packet will be sent
+    string source_channel = 2 [
+        (gogoproto.moretags) = "yaml:\"source_channel\""
+    ];
+    bytes msgBytes = 3 [
+        (gogoproto.moretags) = "yaml:\"msg_bytes\""
+    ];
+    bytes sender = 4 [
+        (gogoproto.casttype) = "github.com/cosmos/cosmos-sdk/types.AccAddress"
+    ];
+}

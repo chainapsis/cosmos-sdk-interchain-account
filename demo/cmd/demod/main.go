@@ -26,39 +26,24 @@ import (
 )
 
 const flagInvCheckPeriod = "inv-check-period"
-const flagBech32Prefix = "bech32-prefix"
 
 var invCheckPeriod uint
-var bech32Prefix string
-
-func setBech32Prefix(config *sdk.Config, prefix string) {
-	bech32PrefixAccAddr := prefix
-	bech32PrefixAccPub := prefix + "pub"
-	bech32PrefixValAddr := prefix + "valoper"
-	bech32PrefixValPub := prefix + "valoperpub"
-	bech32PrefixConsAddr := prefix + "valcons"
-	bech32PrefixConsPub := prefix + "valconspub"
-
-	config.SetBech32PrefixForAccount(bech32PrefixAccAddr, bech32PrefixAccPub)
-	config.SetBech32PrefixForValidator(bech32PrefixValAddr, bech32PrefixValPub)
-	config.SetBech32PrefixForConsensusNode(bech32PrefixConsAddr, bech32PrefixConsPub)
-}
 
 func main() {
 	appCodec, cdc := app.MakeCodecs()
 
+	config := sdk.GetConfig()
+	config.SetBech32PrefixForAccount(sdk.Bech32PrefixAccAddr, sdk.Bech32PrefixAccPub)
+	config.SetBech32PrefixForValidator(sdk.Bech32PrefixValAddr, sdk.Bech32PrefixValPub)
+	config.SetBech32PrefixForConsensusNode(sdk.Bech32PrefixConsAddr, sdk.Bech32PrefixConsPub)
+	config.Seal()
+
 	ctx := server.NewDefaultContext()
 	cobra.EnableCommandSorting = false
 	rootCmd := &cobra.Command{
-		Use:   "demod",
-		Short: "Demo Daemon (server)",
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			config := sdk.GetConfig()
-			setBech32Prefix(config, bech32Prefix)
-			config.Seal()
-
-			return server.PersistentPreRunEFn(ctx)(cmd, args)
-		},
+		Use:               "demod",
+		Short:             "Demo Daemon (server)",
+		PersistentPreRunE: server.PersistentPreRunEFn(ctx),
 	}
 
 	rootCmd.AddCommand(genutilcli.InitCmd(ctx, cdc, app.ModuleBasics, app.DefaultNodeHome))
@@ -83,7 +68,6 @@ func main() {
 	executor := cli.PrepareBaseCmd(rootCmd, "GA", app.DefaultNodeHome)
 	rootCmd.PersistentFlags().UintVar(&invCheckPeriod, flagInvCheckPeriod,
 		0, "Assert registered invariants every N blocks")
-	rootCmd.PersistentFlags().StringVar(&bech32Prefix, flagBech32Prefix, "demo", "Bech32 prefix")
 
 	err := executor.Execute()
 	if err != nil {

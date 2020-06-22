@@ -27,23 +27,6 @@ import (
 	"github.com/chainapsis/cosmos-sdk-interchain-account/demo/app"
 )
 
-const flagBech32Prefix = "bech32-prefix"
-
-var bech32Prefix string
-
-func setBech32Prefix(config *sdk.Config, prefix string) {
-	bech32PrefixAccAddr := prefix
-	bech32PrefixAccPub := prefix + "pub"
-	bech32PrefixValAddr := prefix + "valoper"
-	bech32PrefixValPub := prefix + "valoperpub"
-	bech32PrefixConsAddr := prefix + "valcons"
-	bech32PrefixConsPub := prefix + "valconspub"
-
-	config.SetBech32PrefixForAccount(bech32PrefixAccAddr, bech32PrefixAccPub)
-	config.SetBech32PrefixForValidator(bech32PrefixValAddr, bech32PrefixValPub)
-	config.SetBech32PrefixForConsensusNode(bech32PrefixConsAddr, bech32PrefixConsPub)
-}
-
 var (
 	appCodec, cdc = app.MakeCodecs()
 )
@@ -56,6 +39,12 @@ func main() {
 	// Configure cobra to sort commands
 	cobra.EnableCommandSorting = false
 
+	config := sdk.GetConfig()
+	config.SetBech32PrefixForAccount(sdk.Bech32PrefixAccAddr, sdk.Bech32PrefixAccPub)
+	config.SetBech32PrefixForValidator(sdk.Bech32PrefixValAddr, sdk.Bech32PrefixValPub)
+	config.SetBech32PrefixForConsensusNode(sdk.Bech32PrefixConsAddr, sdk.Bech32PrefixConsPub)
+	config.Seal()
+
 	// TODO: setup keybase, viper object, etc. to be passed into
 	// the below functions and eliminate global vars, like we do
 	// with the cdc
@@ -67,12 +56,7 @@ func main() {
 
 	// Add --chain-id to persistent flags and mark it required
 	rootCmd.PersistentFlags().String(flags.FlagChainID, "", "Chain ID of tendermint node")
-	rootCmd.PersistentFlags().StringVar(&bech32Prefix, flagBech32Prefix, "demo", "Bech32 prefix")
 	rootCmd.PersistentPreRunE = func(_ *cobra.Command, _ []string) error {
-		config := sdk.GetConfig()
-		setBech32Prefix(config, bech32Prefix)
-		config.Seal()
-
 		return initConfig(rootCmd)
 	}
 
