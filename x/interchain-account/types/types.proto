@@ -1,5 +1,5 @@
 syntax = "proto3";
-package astro_canvas.x.interchain_account.v1;
+package cosmos_sdk_interchain_account.x.interchain_account.v1;
 
 option go_package = "github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account/types";
 
