@@ -253,7 +253,8 @@ func NewSimApp(
 	)
 	transferModule := transfer.NewAppModule(app.TransferKeeper)
 
-	app.InterchainAccountKeeper = interaccount.NewKeeper(appCodec, keys[interaccount.StoreKey], cdc, cdc, app.IBCKeeper.ChannelKeeper, &app.IBCKeeper.PortKeeper, app.AccountKeeper, scopedInterchainAccountKeeper, app.Router())
+	counterpartyInfos := map[string]interaccount.CounterpartyInfo{}
+	app.InterchainAccountKeeper = interaccount.NewKeeper(appCodec, keys[interaccount.StoreKey], cdc, counterpartyInfos, app.IBCKeeper.ChannelKeeper, &app.IBCKeeper.PortKeeper, app.AccountKeeper, scopedInterchainAccountKeeper, app.Router())
 	interchainAccountModule := interaccount.NewAppModule(app.InterchainAccountKeeper)
 
 	// Create static IBC router, add transfer route, then set and seal it

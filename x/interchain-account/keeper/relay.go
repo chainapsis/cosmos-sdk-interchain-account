@@ -40,6 +40,8 @@ func (k Keeper) CreateAccount(ctx sdk.Context, address sdk.AccAddress, identifie
 	if account != nil {
 		return sdkerrors.Wrap(types.ErrAccountAlreadyExist, account.String())
 	}
+	// Set account's address if account is nil
+	account = k.accountKeeper.NewAccountWithAddress(ctx, address)
 	k.accountKeeper.SetAccount(ctx, account)
 
 	store := ctx.KVStore(k.storeKey)
@@ -112,62 +114,64 @@ func (k Keeper) CreateOutgoingPacket(
 	sourceChannel,
 	destinationPort,
 	destinationChannel,
-	chainType string,
+	chainID string,
 	data interface{},
 ) error {
-	if chainType == types.CosmosSdkChainType {
-		if data == nil {
-			return types.ErrInvalidOutgoingData
-		}
-
-		var msgs []sdk.Msg
-
-		switch data := data.(type) {
-		case []sdk.Msg:
-			msgs = data
-		case sdk.Msg:
-			msgs = []sdk.Msg{data}
-		default:
-			return types.ErrInvalidOutgoingData
-		}
-
-		interchainAccountTx := types.InterchainAccountTx{Msgs: msgs}
-
-		txBytes, err := k.counterpartyTxCdc.MarshalBinaryBare(interchainAccountTx)
-		if err != nil {
-			return sdkerrors.Wrap(err, "invalid packet data or codec")
-		}
-
-		channelCap, ok := k.scopedKeeper.GetCapability(ctx, ibctypes.ChannelCapabilityPath(sourcePort, sourceChannel))
-		if !ok {
-			return sdkerrors.Wrap(channeltypes.ErrChannelCapabilityNotFound, "module does not own channel capability")
-		}
-
-		// get the next sequence
-		sequence, found := k.channelKeeper.GetNextSequenceSend(ctx, sourcePort, sourceChannel)
-		if !found {
-			return channel.ErrSequenceSendNotFound
-		}
-
-		packetData := types.RunTxPacketData{
-			TxBytes: txBytes,
-		}
-
-		// TODO: Add timeout height and timestamp
-		packet := channel.NewPacket(
-			packetData.GetBytes(),
-			sequence,
-			sourcePort,
-			sourceChannel,
-			destinationPort,
-			destinationChannel,
-			math.MaxUint64,
-			0,
-		)
-
-		return k.channelKeeper.SendPacket(ctx, channelCap, packet)
+	if data == nil {
+		return types.ErrInvalidOutgoingData
 	}
-	return sdkerrors.Wrap(types.ErrUnsupportedChainType, chainType)
+
+	counterpartyInfo, ok := k.counterpartyInfos[chainID]
+	if !ok {
+		return types.ErrUnsupportedChain
+	}
+
+	var msgs []sdk.Msg
+
+	switch data := data.(type) {
+	case []sdk.Msg:
+		msgs = data
+	case sdk.Msg:
+		msgs = []sdk.Msg{data}
+	default:
+		return types.ErrInvalidOutgoingData
+	}
+
+	interchainAccountTx := types.InterchainAccountTx{Msgs: msgs}
+
+	txBytes, err := counterpartyInfo.CounterpartyTxCdc.MarshalBinaryBare(interchainAccountTx)
+	if err != nil {
+		return sdkerrors.Wrap(err, "invalid packet data or codec")
+	}
+
+	channelCap, ok := k.scopedKeeper.GetCapability(ctx, ibctypes.ChannelCapabilityPath(sourcePort, sourceChannel))
+	if !ok {
+		return sdkerrors.Wrap(channeltypes.ErrChannelCapabilityNotFound, "module does not own channel capability")
+	}
+
+	// get the next sequence
+	sequence, found := k.channelKeeper.GetNextSequenceSend(ctx, sourcePort, sourceChannel)
+	if !found {
+		return channel.ErrSequenceSendNotFound
+	}
+
+	packetData := types.RunTxPacketData{
+		TxBytes: txBytes,
+	}
+
+	// TODO: Add timeout height and timestamp
+	packet := channel.NewPacket(
+		packetData.GetBytes(),
+		sequence,
+		sourcePort,
+		sourceChannel,
+		destinationPort,
+		destinationChannel,
+		math.MaxUint64,
+		0,
+	)
+
+	return k.channelKeeper.SendPacket(ctx, channelCap, packet)
 }
 
 func (k Keeper) DeserializeTx(_ sdk.Context, txBytes []byte) (types.InterchainAccountTx, error) {

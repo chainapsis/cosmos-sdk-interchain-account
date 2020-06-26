@@ -19,6 +19,7 @@ var (
 
 type (
 	Keeper                                  = keeper.Keeper
+	CounterpartyInfo                        = keeper.CounterpartyInfo
 	InterchainAccountPacket                 = types.InterchainAccountPacket
 	RegisterIBCAccountPacketData            = types.RegisterIBCAccountPacketData
 	RunTxPacketData                         = types.RunTxPacketData

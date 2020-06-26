@@ -27,16 +27,21 @@ const (
 	DefaultPacketTimeoutTimestamp = 0 // NOTE: in nanoseconds
 )
 
+type CounterpartyInfo struct {
+	// This field us used to marshal transaction for counterparty chain.
+	// TODO: Change to proto codec.
+	CounterpartyTxCdc *codec.Codec
+}
+
 // Keeper defines the IBC transfer keeper
 type Keeper struct {
 	storeKey sdk.StoreKey
 	cdc      codec.Marshaler
 
 	txCdc *codec.Codec
-	// This field us used to marshal transaction for counterparty chain.
-	// Currently, we support only one counterparty chain per interchain account keeper.
-	// TODO: support multiple counterparty codec.
-	counterpartyTxCdc *codec.Codec
+
+	// Key is chain id.
+	counterpartyInfos map[string]CounterpartyInfo
 
 	channelKeeper types.ChannelKeeper
 	portKeeper    types.PortKeeper
@@ -50,20 +55,24 @@ type Keeper struct {
 // NewKeeper creates a new IBC transfer Keeper instance
 func NewKeeper(
 	cdc codec.Marshaler, key sdk.StoreKey,
-	txCdc, counterpartyTxCdc *codec.Codec, channelKeeper types.ChannelKeeper, portKeeper types.PortKeeper,
+	txCdc *codec.Codec, counterpartyInfos map[string]CounterpartyInfo, channelKeeper types.ChannelKeeper, portKeeper types.PortKeeper,
 	accountKeeper types.AccountKeeper, scopedKeeper capability.ScopedKeeper, router types.Router,
 ) Keeper {
 	return Keeper{
 		storeKey:          key,
 		cdc:               cdc,
 		txCdc:             txCdc,
-		counterpartyTxCdc: counterpartyTxCdc,
+		counterpartyInfos: counterpartyInfos,
 		channelKeeper:     channelKeeper,
 		portKeeper:        portKeeper,
 		accountKeeper:     accountKeeper,
 		scopedKeeper:      scopedKeeper,
 		router:            router,
 	}
+}
+
+func (k Keeper) AddCounterpartyInfo(chainID string, info CounterpartyInfo) {
+	k.counterpartyInfos[chainID] = info
 }
 
 func (k Keeper) Logger(ctx sdk.Context) log.Logger {

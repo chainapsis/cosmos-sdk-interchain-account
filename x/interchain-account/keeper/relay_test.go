@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account/keeper"
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account/types"
 	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
 )
@@ -10,6 +11,11 @@ func (suite *KeeperTestSuite) TestCreateIAAccount() {
 
 	// reset
 	suite.SetupTest()
+
+	// Add counterparty info.
+	suite.chainA.App.InterchainAccountKeeper.AddCounterpartyInfo(testClientIDB, keeper.CounterpartyInfo{
+		CounterpartyTxCdc: suite.chainB.App.Codec(),
+	})
 
 	// create channel capability from ibc scoped keeper and claim with ia scoped keeper
 	cap, err := suite.chainA.App.ScopedIBCKeeper.NewCapability(suite.chainA.GetContext(), capName)
