@@ -199,7 +199,11 @@ func (am AppModule) OnRecvPacket(
 	switch data.(type) {
 	case RegisterIBCAccountPacketData:
 		acknowledgement := RegisterIBCAccountPacketAcknowledgement{
+			ChainID: ctx.ChainID(),
 			Success: err == nil,
+		}
+		if err != nil {
+			acknowledgement.Error = err.Error()
 		}
 
 		if err := am.keeper.PacketExecuted(ctx, packet, acknowledgement.GetBytes()); err != nil {
@@ -214,7 +218,9 @@ func (am AppModule) OnRecvPacket(
 		}
 		if err != nil {
 			acknowledgement = RunTxPacketAcknowledgement{
-				Code: 1,
+				ChainID: ctx.ChainID(),
+				Code:    1, // TODO: Use codespace.
+				Error:   err.Error(),
 			}
 		}
 

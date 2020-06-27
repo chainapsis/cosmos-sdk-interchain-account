@@ -12,9 +12,13 @@ message RunTxPacketData {
 }
 
 message RegisterIBCAccountPacketAcknowledgement {
-    bool   success = 1;
+    string chainID = 1;
+    bool   success = 2;
+    string error = 3;
 }
 
 message RunTxPacketAcknowledgement {
-    uint32 code = 1;
+    string chainID = 1;
+    uint32 code = 2;
+    string error = 3;
 }
