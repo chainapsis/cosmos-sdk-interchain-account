@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"bytes"
-	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
 	"math"
 
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
@@ -11,6 +10,7 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	channel "github.com/cosmos/cosmos-sdk/x/ibc/04-channel"
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
+	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 )
 

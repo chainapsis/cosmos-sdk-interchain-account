@@ -2,13 +2,13 @@ package keeper
 
 import (
 	"fmt"
-	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
 
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	capabilitykeeper "github.com/cosmos/cosmos-sdk/x/capability/keeper"
 	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
 	channel "github.com/cosmos/cosmos-sdk/x/ibc/04-channel"
 	channelexported "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
+	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -28,7 +28,7 @@ const (
 	DefaultPacketTimeoutTimestamp = 0 // NOTE: in nanoseconds
 )
 
-func SerializeCosmosTx(codec codec.Codec) func(data interface{}) ([]byte, error) {
+func SerializeCosmosTx(codec *codec.Codec) func(data interface{}) ([]byte, error) {
 	return func(data interface{}) ([]byte, error) {
 		msgs := make([]sdk.Msg, 0, 1)
 		switch data := data.(type) {
@@ -49,9 +49,9 @@ func SerializeCosmosTx(codec codec.Codec) func(data interface{}) ([]byte, error)
 	}
 }
 
-type CounterpartyInfo interface {
+type CounterpartyInfo struct {
 	// This method used to marshal transaction for counterparty chain.
-	SerializeTx(data interface{}) ([]byte, error)
+	SerializeTx func(data interface{}) ([]byte, error)
 }
 
 // Keeper defines the IBC transfer keeper
