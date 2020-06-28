@@ -199,7 +199,7 @@ func (am AppModule) OnRecvPacket(
 		return nil, nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "cannot unmarshal interchain account packet data: %s", err.Error())
 	}
 
-	err := am.keeper.OnRecvPacket(ctx, packet, data)
+	err := am.keeper.OnRecvPacket(ctx, packet)
 
 	switch data.(type) {
 	case types.RegisterIBCAccountPacketData:

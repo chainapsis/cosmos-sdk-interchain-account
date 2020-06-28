@@ -248,7 +248,13 @@ func (k Keeper) RunMsg(ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error) {
 	return hander(ctx, msg)
 }
 
-func (k Keeper) OnRecvPacket(ctx sdk.Context, packet channeltypes.Packet, data types.InterchainAccountPacket) error {
+func (k Keeper) OnRecvPacket(ctx sdk.Context, packet channeltypes.Packet) error {
+	var data types.InterchainAccountPacket
+	// TODO: Remove the usage of global variable "ModuleCdc"
+	if err := types.ModuleCdc.UnmarshalJSON(packet.GetData(), &data); err != nil {
+		return sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "cannot unmarshal interchain account packet data: %s", err.Error())
+	}
+
 	switch data := data.(type) {
 	case types.RegisterIBCAccountPacketData:
 		err := k.RegisterIBCAccount(ctx, packet.SourcePort, packet.SourceChannel, data.Salt)

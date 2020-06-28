@@ -3,12 +3,117 @@ package keeper_test
 import (
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/keeper"
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	connection "github.com/cosmos/cosmos-sdk/x/ibc/03-connection"
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
+	"math"
 )
 
-func (suite *KeeperTestSuite) TestCreateIAAccount() {
+func (suite *KeeperTestSuite) TestCreateIBCAccount() {
+	suite.initChannelAtoB()
+
+	err := suite.chainA.App.IBCAccountKeeper.CreateInterchainAccount(suite.chainA.GetContext(), testPort1, testChannel1, testSalt)
+	suite.Require().Nil(err, "could not request creating ia account")
+
+	packetCommitment := suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 1)
+	suite.Require().Greater(len(packetCommitment), 0, "packet commitment is empty")
+
+	packet := channeltypes.NewPacket(
+		types.RegisterIBCAccountPacketData{Salt: testSalt}.GetBytes(),
+		1,
+		testPort1,
+		testChannel1,
+		testPort2,
+		testChannel2,
+		math.MaxUint64,
+		0,
+	)
+	suite.Require().Equal(packetCommitment, channeltypes.CommitPacket(packet))
+
+	err = suite.chainB.App.IBCAccountKeeper.OnRecvPacket(suite.chainB.GetContext(), packet)
+	suite.Require().Nil(err)
+
+	acc := suite.chainB.App.AccountKeeper.GetAccount(suite.chainB.GetContext(), suite.chainB.App.IBCAccountKeeper.GenerateAddress(types.GetIdentifier(testPort1, testChannel1), testSalt))
+	suite.Require().NotNil(acc, "ibc account is not registered on counterparty chain")
+}
+
+func (suite *KeeperTestSuite) TestRunTx() {
+	suite.initChannelAtoB()
+
+	err := suite.chainA.App.IBCAccountKeeper.CreateInterchainAccount(suite.chainA.GetContext(), testPort1, testChannel1, testSalt)
+	suite.Require().Nil(err, "could not request creating ia account")
+
+	packetCommitment := suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 1)
+	suite.Require().Greater(len(packetCommitment), 0, "packet commitment is empty")
+
+	// TODO: verify a packet with proof
+	err = suite.chainB.App.IBCAccountKeeper.RegisterIBCAccount(suite.chainB.GetContext(), testPort1, testChannel1, testSalt)
+	suite.Require().Nil(err)
+
+	acc := suite.chainB.App.AccountKeeper.GetAccount(suite.chainB.GetContext(), suite.chainB.App.IBCAccountKeeper.GenerateAddress(types.GetIdentifier(testPort1, testChannel1), testSalt))
+	suite.Require().NotNil(acc, "ibc account is not registered on counterparty chain")
+
+	// Tokens to mint to ibc account.
+	mint := sdk.Coins{
+		sdk.Coin{
+			Denom:  "test",
+			Amount: sdk.NewInt(1000),
+		},
+	}
+
+	// Bal should be empty.
+	bal := suite.chainB.App.BankKeeper.GetAllBalances(suite.chainB.GetContext(), acc.GetAddress())
+	suite.Require().Equal(sdk.Coins{}, bal)
+
+	// Mint tokens.
+	_, err = suite.chainB.App.BankKeeper.AddCoins(suite.chainB.GetContext(), acc.GetAddress(), mint)
+	suite.Require().Nil(err)
+
+	bal = suite.chainB.App.BankKeeper.GetAllBalances(suite.chainB.GetContext(), acc.GetAddress())
+	suite.Require().Equal(mint, bal)
+
+	sendMsg := banktypes.NewMsgSend(acc.GetAddress(), sdk.AccAddress{}, sdk.Coins{
+		sdk.Coin{
+			Denom:  "test",
+			Amount: sdk.NewInt(500),
+		},
+	})
+	err = suite.chainA.App.IBCAccountKeeper.CreateOutgoingPacket(suite.chainA.GetContext(), testPort1, testChannel1, testPort2, testChannel2, testClientIDB, sendMsg)
+	suite.Require().Nil(err)
+
+	packetCommitment = suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 2)
+	suite.Require().Greater(len(packetCommitment), 0, "packet commitment is empty")
+
+	packetTxBytes, err := keeper.SerializeCosmosTx(suite.chainB.App.Codec())(sendMsg)
+	suite.Require().Nil(err)
+	packet := channeltypes.NewPacket(
+		types.RunTxPacketData{TxBytes: packetTxBytes}.GetBytes(),
+		2,
+		testPort1,
+		testChannel1,
+		testPort2,
+		testChannel2,
+		math.MaxUint64,
+		0,
+	)
+	suite.Require().Equal(packetCommitment, channeltypes.CommitPacket(packet))
+
+	err = suite.chainB.App.IBCAccountKeeper.OnRecvPacket(suite.chainB.GetContext(), packet)
+	suite.Require().Nil(err)
+
+	// Bal should have been transfered.
+	bal = suite.chainB.App.BankKeeper.GetAllBalances(suite.chainB.GetContext(), acc.GetAddress())
+	suite.Require().Equal(sdk.Coins{
+		sdk.Coin{
+			Denom:  "test",
+			Amount: sdk.NewInt(500),
+		},
+	}, bal)
+}
+
+func (suite *KeeperTestSuite) initChannelAtoB() {
 	capName := host.ChannelCapabilityPath(testPort1, testChannel1)
 
 	// Add counterparty info.
@@ -30,17 +135,4 @@ func (suite *KeeperTestSuite) TestCreateIAAccount() {
 
 	initialSeq := uint64(1)
 	suite.chainA.App.IBCKeeper.ChannelKeeper.SetNextSequenceSend(suite.chainA.GetContext(), testPort1, testChannel1, initialSeq)
-
-	err = suite.chainA.App.IBCAccountKeeper.CreateInterchainAccount(suite.chainA.GetContext(), testPort1, testChannel1, testSalt)
-	suite.Require().Nil(err, "could not request creating ia account")
-
-	packet := suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, initialSeq)
-	suite.Require().Greater(len(packet), 0, "packet is empty")
-
-	// TODO: verify a packet with proof
-	err = suite.chainB.App.IBCAccountKeeper.RegisterIBCAccount(suite.chainB.GetContext(), testPort1, testChannel1, testSalt)
-	suite.Require().Nil(err)
-
-	acc := suite.chainB.App.AccountKeeper.GetAccount(suite.chainB.GetContext(), suite.chainB.App.IBCAccountKeeper.GenerateAddress(types.GetIdentifier(testPort1, testChannel1), testSalt))
-	suite.Require().NotNil(acc, "ia account is not registered on counterparty chain")
 }

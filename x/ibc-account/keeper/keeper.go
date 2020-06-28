@@ -30,7 +30,7 @@ const (
 
 func SerializeCosmosTx(codec *codec.Codec) func(data interface{}) ([]byte, error) {
 	return func(data interface{}) ([]byte, error) {
-		msgs := make([]sdk.Msg, 0, 1)
+		msgs := make([]sdk.Msg, 0)
 		switch data := data.(type) {
 		case sdk.Msg:
 			msgs = append(msgs, data)
@@ -60,7 +60,7 @@ type Keeper struct {
 	cdc      codec.Marshaler
 
 	// TODO: Remove this field and use codec.Marshaler.
-	txCdc codec.Codec
+	txCdc *codec.Codec
 
 	// Key is chain id.
 	counterpartyInfos map[string]CounterpartyInfo
@@ -76,12 +76,13 @@ type Keeper struct {
 
 // NewKeeper creates a new IBC account Keeper instance
 func NewKeeper(
-	cdc codec.Marshaler, key sdk.StoreKey,
+	cdc codec.Marshaler, txCdc *codec.Codec, key sdk.StoreKey,
 	counterpartyInfos map[string]CounterpartyInfo, channelKeeper types.ChannelKeeper, portKeeper types.PortKeeper,
 	accountKeeper types.AccountKeeper, scopedKeeper capabilitykeeper.ScopedKeeper, router types.Router,
 ) Keeper {
 	return Keeper{
 		storeKey:          key,
+		txCdc:             txCdc,
 		cdc:               cdc,
 		counterpartyInfos: counterpartyInfos,
 		channelKeeper:     channelKeeper,
