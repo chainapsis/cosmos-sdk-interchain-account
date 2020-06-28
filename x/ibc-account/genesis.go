@@ -1,10 +1,10 @@
-package interchain_account
+package ibc_account
 
 import (
 	"fmt"
 
-	"github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account/keeper"
-	"github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account/types"
+	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/keeper"
+	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 

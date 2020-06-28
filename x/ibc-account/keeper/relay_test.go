@@ -1,8 +1,8 @@
 package keeper_test
 
 import (
-	"github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account/keeper"
-	"github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account/types"
+	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/keeper"
+	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
 	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
 )
 

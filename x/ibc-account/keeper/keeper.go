@@ -15,7 +15,7 @@ import (
 
 	"github.com/tendermint/tendermint/libs/log"
 
-	"github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account/types"
+	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
 )
 
 const (

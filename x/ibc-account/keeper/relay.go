@@ -5,7 +5,7 @@ import (
 	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
 	"math"
 
-	"github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account/types"
+	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
 	"github.com/cosmos/cosmos-sdk/store/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"

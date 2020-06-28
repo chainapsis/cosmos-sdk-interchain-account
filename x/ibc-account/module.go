@@ -1,4 +1,4 @@
-package interchain_account
+package ibc_account
 
 import (
 	"encoding/json"
@@ -12,8 +12,8 @@ import (
 
 	abci "github.com/tendermint/tendermint/abci/types"
 
-	"github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account/keeper"
-	"github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account/types"
+	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/keeper"
+	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
