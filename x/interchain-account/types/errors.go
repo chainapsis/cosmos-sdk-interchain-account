@@ -5,10 +5,9 @@ import (
 )
 
 var (
-	ErrInvalidOrder        = sdkerrors.Register(ModuleName, 2, "should be ordered")
-	ErrUnknownPacketData   = sdkerrors.Register(ModuleName, 3, "unknown packet data")
-	ErrAccountAlreadyExist = sdkerrors.Register(ModuleName, 4, "account already exist")
-	ErrUnsupportedChain    = sdkerrors.Register(ModuleName, 5, "unsupported chain")
-	ErrInvalidOutgoingData = sdkerrors.Register(ModuleName, 6, "invalid outgoing data")
-	ErrInvalidRoute        = sdkerrors.Register(ModuleName, 7, "invalid route")
+	ErrUnknownPacketData   = sdkerrors.Register(ModuleName, 1, "unknown packet data")
+	ErrAccountAlreadyExist = sdkerrors.Register(ModuleName, 2, "account already exist")
+	ErrUnsupportedChain    = sdkerrors.Register(ModuleName, 3, "unsupported chain")
+	ErrInvalidOutgoingData = sdkerrors.Register(ModuleName, 4, "invalid outgoing data")
+	ErrInvalidRoute        = sdkerrors.Register(ModuleName, 5, "invalid route")
 )

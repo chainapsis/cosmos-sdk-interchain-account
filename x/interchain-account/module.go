@@ -3,15 +3,18 @@ package interchain_account
 import (
 	"encoding/json"
 
+	"github.com/gogo/protobuf/grpc"
+
+	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
+
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/cosmos/cosmos-sdk/x/capability"
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
-	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 
+	"github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account/keeper"
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account/types"
-	"github.com/cosmos/cosmos-sdk/client/context"
+	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -30,11 +33,11 @@ var (
 type AppModuleBasic struct{}
 
 func (AppModuleBasic) Name() string {
-	return ModuleName
+	return types.ModuleName
 }
 
 func (AppModuleBasic) RegisterCodec(cdc *codec.Codec) {
-	RegisterCodec(cdc)
+	types.RegisterCodec(cdc)
 }
 
 func (AppModuleBasic) DefaultGenesis(cdc codec.JSONMarshaler) json.RawMessage {
@@ -45,16 +48,16 @@ func (AppModuleBasic) ValidateGenesis(_ codec.JSONMarshaler, _ json.RawMessage) 
 	return nil
 }
 
-func (AppModuleBasic) RegisterRESTRoutes(ctx context.CLIContext, rtr *mux.Router) {
+func (AppModuleBasic) RegisterRESTRoutes(ctx client.Context, rtr *mux.Router) {
 	// noop
 }
 
-func (AppModuleBasic) GetTxCmd(cdc *codec.Codec) *cobra.Command {
+func (AppModuleBasic) GetTxCmd(clientCtx client.Context) *cobra.Command {
 	// noop
 	return nil
 }
 
-func (AppModuleBasic) GetQueryCmd(cdc *codec.Codec) *cobra.Command {
+func (AppModuleBasic) GetQueryCmd(clientCtx client.Context) *cobra.Command {
 	// noop
 	return nil
 }
@@ -66,10 +69,10 @@ func (AppModuleBasic) RegisterInterfaceTypes(registry cdctypes.InterfaceRegistry
 
 type AppModule struct {
 	AppModuleBasic
-	keeper Keeper
+	keeper keeper.Keeper
 }
 
-func NewAppModule(k Keeper) AppModule {
+func NewAppModule(k keeper.Keeper) AppModule {
 	return AppModule{
 		keeper: k,
 	}
@@ -79,8 +82,8 @@ func (AppModule) RegisterInvariants(ir sdk.InvariantRegistry) {
 	// noop
 }
 
-func (AppModule) Route() string {
-	return RouterKey
+func (AppModule) Route() sdk.Route {
+	return sdk.NewRoute(types.RouterKey, nil)
 }
 
 func (AppModule) NewHandler() sdk.Handler {
@@ -88,12 +91,14 @@ func (AppModule) NewHandler() sdk.Handler {
 }
 
 func (AppModule) QuerierRoute() string {
-	return QuerierRoute
+	return types.QuerierRoute
 }
 
 func (AppModule) NewQuerierHandler() sdk.Querier {
 	return nil
 }
+
+func (am AppModule) RegisterQueryService(grpc.Server) {}
 
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONMarshaler, data json.RawMessage) []abci.ValidatorUpdate {
 	var genesisState types.GenesisState
@@ -121,11 +126,11 @@ func (am AppModule) EndBlock(ctx sdk.Context, req abci.RequestEndBlock) []abci.V
 // Implement IBCModule callbacks
 func (am AppModule) OnChanOpenInit(
 	ctx sdk.Context,
-	order ibctypes.Order,
+	order channeltypes.Order,
 	connectionHops []string,
 	portID string,
 	channelID string,
-	chanCap *capability.Capability,
+	chanCap *capabilitytypes.Capability,
 	counterparty channeltypes.Counterparty,
 	version string,
 ) error {
@@ -134,11 +139,11 @@ func (am AppModule) OnChanOpenInit(
 
 func (am AppModule) OnChanOpenTry(
 	ctx sdk.Context,
-	order ibctypes.Order,
+	order channeltypes.Order,
 	connectionHops []string,
 	portID,
 	channelID string,
-	chanCap *capability.Capability,
+	chanCap *capabilitytypes.Capability,
 	counterparty channeltypes.Counterparty,
 	version,
 	counterpartyVersion string,
@@ -187,18 +192,18 @@ func (am AppModule) OnChanCloseConfirm(
 func (am AppModule) OnRecvPacket(
 	ctx sdk.Context,
 	packet channeltypes.Packet,
-) (*sdk.Result, error) {
-	var data InterchainAccountPacket
+) (*sdk.Result, []byte, error) {
+	var data types.InterchainAccountPacket
 	// TODO: Remove the usage of global variable "ModuleCdc"
 	if err := types.ModuleCdc.UnmarshalJSON(packet.GetData(), &data); err != nil {
-		return nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "cannot unmarshal interchain account packet data: %s", err.Error())
+		return nil, nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "cannot unmarshal interchain account packet data: %s", err.Error())
 	}
 
 	err := am.keeper.OnRecvPacket(ctx, packet, data)
 
 	switch data.(type) {
-	case RegisterIBCAccountPacketData:
-		acknowledgement := RegisterIBCAccountPacketAcknowledgement{
+	case types.RegisterIBCAccountPacketData:
+		acknowledgement := types.RegisterIBCAccountPacketAcknowledgement{
 			ChainID: ctx.ChainID(),
 			Success: err == nil,
 		}
@@ -207,31 +212,28 @@ func (am AppModule) OnRecvPacket(
 		}
 
 		if err := am.keeper.PacketExecuted(ctx, packet, acknowledgement.GetBytes()); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		return &sdk.Result{
 			Events: ctx.EventManager().Events().ToABCIEvents(),
-		}, nil
-	case RunTxPacketData:
-		acknowledgement := RunTxPacketAcknowledgement{
+		}, nil, nil
+	case types.RunTxPacketData:
+		acknowledgement := types.RunTxPacketAcknowledgement{
 			Code: 0,
 		}
 		if err != nil {
-			acknowledgement = RunTxPacketAcknowledgement{
+			acknowledgement = types.RunTxPacketAcknowledgement{
 				ChainID: ctx.ChainID(),
 				Code:    1, // TODO: Use codespace.
 				Error:   err.Error(),
 			}
 		}
 
-		if err := am.keeper.PacketExecuted(ctx, packet, acknowledgement.GetBytes()); err != nil {
-			return nil, err
-		}
 		return &sdk.Result{
 			Events: ctx.EventManager().Events().ToABCIEvents(),
-		}, nil
+		}, acknowledgement.GetBytes(), nil
 	default:
-		return nil, types.ErrUnknownPacketData
+		return nil, nil, types.ErrUnknownPacketData
 	}
 }
 
