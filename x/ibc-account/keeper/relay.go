@@ -137,9 +137,7 @@ func (k Keeper) CreateOutgoingPacket(
 		return types.ErrInvalidOutgoingData
 	}
 
-	interchainAccountTx := types.InterchainAccountTx{Msgs: msgs}
-
-	txBytes, err := counterpartyInfo.CounterpartyTxCdc.MarshalBinaryBare(interchainAccountTx)
+	txBytes, err := counterpartyInfo.SerializeTx(msgs)
 	if err != nil {
 		return sdkerrors.Wrap(err, "invalid packet data or codec")
 	}
@@ -174,21 +172,19 @@ func (k Keeper) CreateOutgoingPacket(
 	return k.channelKeeper.SendPacket(ctx, channelCap, packet)
 }
 
-func (k Keeper) DeserializeTx(_ sdk.Context, txBytes []byte) (types.InterchainAccountTx, error) {
-	tx := types.InterchainAccountTx{}
+func (k Keeper) DeserializeTx(_ sdk.Context, txBytes []byte) ([]sdk.Msg, error) {
+	var msgs []sdk.Msg
 
-	err := k.txCdc.UnmarshalBinaryBare(txBytes, &tx)
-	return tx, err
+	err := k.txCdc.UnmarshalBinaryBare(txBytes, &msgs)
+	return msgs, err
 }
 
-func (k Keeper) RunTx(ctx sdk.Context, sourcePort, sourceChannel string, tx types.InterchainAccountTx) error {
+func (k Keeper) RunTx(ctx sdk.Context, sourcePort, sourceChannel string, msgs []sdk.Msg) error {
 	identifier := types.GetIdentifier(sourcePort, sourceChannel)
-	err := k.AuthenticateTx(ctx, tx, identifier)
+	err := k.AuthenticateTx(ctx, msgs, identifier)
 	if err != nil {
 		return err
 	}
-
-	msgs := tx.Msgs
 
 	// Use cache context.
 	// Receive packet msg should succeed regardless of the result of logic.
@@ -217,9 +213,7 @@ func (k Keeper) RunTx(ctx sdk.Context, sourcePort, sourceChannel string, tx type
 	return nil
 }
 
-func (k Keeper) AuthenticateTx(ctx sdk.Context, tx types.InterchainAccountTx, identifier string) error {
-	msgs := tx.Msgs
-
+func (k Keeper) AuthenticateTx(ctx sdk.Context, msgs []sdk.Msg, identifier string) error {
 	seen := map[string]bool{}
 	var signers []sdk.AccAddress
 	for _, msg := range msgs {
@@ -264,12 +258,12 @@ func (k Keeper) OnRecvPacket(ctx sdk.Context, packet channeltypes.Packet, data t
 
 		return nil
 	case types.RunTxPacketData:
-		txData, err := k.DeserializeTx(ctx, data.TxBytes)
+		msgs, err := k.DeserializeTx(ctx, data.TxBytes)
 		if err != nil {
 			return err
 		}
 
-		err = k.RunTx(ctx, packet.SourcePort, packet.SourceChannel, txData)
+		err = k.RunTx(ctx, packet.SourcePort, packet.SourceChannel, msgs)
 		if err != nil {
 			return err
 		}

@@ -28,10 +28,30 @@ const (
 	DefaultPacketTimeoutTimestamp = 0 // NOTE: in nanoseconds
 )
 
-type CounterpartyInfo struct {
-	// This field us used to marshal transaction for counterparty chain.
-	// TODO: Change to proto codec.
-	CounterpartyTxCdc *codec.Codec
+func SerializeCosmosTx(codec codec.Codec) func(data interface{}) ([]byte, error) {
+	return func(data interface{}) ([]byte, error) {
+		msgs := make([]sdk.Msg, 0, 1)
+		switch data := data.(type) {
+		case sdk.Msg:
+			msgs = append(msgs, data)
+		case []sdk.Msg:
+			msgs = append(msgs, data...)
+		default:
+			return nil, types.ErrInvalidOutgoingData
+		}
+
+		bz, err := codec.MarshalBinaryBare(msgs)
+		if err != nil {
+			return nil, err
+		}
+
+		return bz, nil
+	}
+}
+
+type CounterpartyInfo interface {
+	// This method used to marshal transaction for counterparty chain.
+	SerializeTx(data interface{}) ([]byte, error)
 }
 
 // Keeper defines the IBC transfer keeper
@@ -39,7 +59,8 @@ type Keeper struct {
 	storeKey sdk.StoreKey
 	cdc      codec.Marshaler
 
-	txCdc *codec.Codec
+	// TODO: Remove this field and use codec.Marshaler.
+	txCdc codec.Codec
 
 	// Key is chain id.
 	counterpartyInfos map[string]CounterpartyInfo
@@ -53,16 +74,15 @@ type Keeper struct {
 	router types.Router
 }
 
-// NewKeeper creates a new IBC transfer Keeper instance
+// NewKeeper creates a new IBC account Keeper instance
 func NewKeeper(
 	cdc codec.Marshaler, key sdk.StoreKey,
-	txCdc *codec.Codec, counterpartyInfos map[string]CounterpartyInfo, channelKeeper types.ChannelKeeper, portKeeper types.PortKeeper,
+	counterpartyInfos map[string]CounterpartyInfo, channelKeeper types.ChannelKeeper, portKeeper types.PortKeeper,
 	accountKeeper types.AccountKeeper, scopedKeeper capabilitykeeper.ScopedKeeper, router types.Router,
 ) Keeper {
 	return Keeper{
 		storeKey:          key,
 		cdc:               cdc,
-		txCdc:             txCdc,
 		counterpartyInfos: counterpartyInfos,
 		channelKeeper:     channelKeeper,
 		portKeeper:        portKeeper,
