@@ -186,6 +186,13 @@ func (k Keeper) RunTx(ctx sdk.Context, sourcePort, sourceChannel string, msgs []
 		return err
 	}
 
+	for _, msg := range msgs {
+		err := msg.ValidateBasic()
+		if err != nil {
+			return err
+		}
+	}
+
 	// Use cache context.
 	// Receive packet msg should succeed regardless of the result of logic.
 	// But, if we just return the success even though handler is failed,

@@ -74,7 +74,8 @@ func (suite *KeeperTestSuite) TestRunTx() {
 	bal = suite.chainB.App.BankKeeper.GetAllBalances(suite.chainB.GetContext(), acc.GetAddress())
 	suite.Require().Equal(mint, bal)
 
-	sendMsg := banktypes.NewMsgSend(acc.GetAddress(), sdk.AccAddress{}, sdk.Coins{
+	testAddress := suite.chainB.App.IBCAccountKeeper.GenerateAddress(types.GetIdentifier(testPort1, "otherchannel"), testSalt)
+	sendMsg := banktypes.NewMsgSend(acc.GetAddress(), testAddress, sdk.Coins{
 		sdk.Coin{
 			Denom:  "test",
 			Amount: sdk.NewInt(500),
@@ -111,6 +112,46 @@ func (suite *KeeperTestSuite) TestRunTx() {
 			Amount: sdk.NewInt(500),
 		},
 	}, bal)
+
+	bal = suite.chainB.App.BankKeeper.GetAllBalances(suite.chainB.GetContext(), testAddress)
+	suite.Require().Equal(sdk.Coins{
+		sdk.Coin{
+			Denom:  "test",
+			Amount: sdk.NewInt(500),
+		},
+	}, bal)
+
+	// Test the case that msg is sent from not created by ibc account module.
+	sendMsg = banktypes.NewMsgSend(testAddress, acc.GetAddress(), sdk.Coins{
+		sdk.Coin{
+			Denom:  "test",
+			Amount: sdk.NewInt(500),
+		},
+	})
+
+	err = suite.chainA.App.IBCAccountKeeper.CreateOutgoingPacket(suite.chainA.GetContext(), testPort1, testChannel1, testPort2, testChannel2, testClientIDB, sendMsg)
+	suite.Require().Nil(err)
+
+	packetCommitment = suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 3)
+	suite.Require().Greater(len(packetCommitment), 0, "packet commitment is empty")
+
+	packetTxBytes, err = keeper.SerializeCosmosTx(suite.chainB.App.Codec())(sendMsg)
+	suite.Require().Nil(err)
+	packet = channeltypes.NewPacket(
+		types.RunTxPacketData{TxBytes: packetTxBytes}.GetBytes(),
+		2,
+		testPort1,
+		testChannel1,
+		testPort2,
+		testChannel2,
+		math.MaxUint64,
+		0,
+	)
+	suite.Require().Equal(packetCommitment, channeltypes.CommitPacket(packet))
+
+	// Should fail if msg is sent from account not created by ibc account module.
+	err = suite.chainB.App.IBCAccountKeeper.OnRecvPacket(suite.chainB.GetContext(), packet)
+	suite.Require().NotNil(err)
 }
 
 func (suite *KeeperTestSuite) initChannelAtoB() {
