@@ -8,9 +8,8 @@ import (
 )
 
 func RegisterCodec(cdc *codec.Codec) {
-	cdc.RegisterInterface((*InterchainAccountPacket)(nil), nil)
-	cdc.RegisterConcrete(RegisterIBCAccountPacketData{}, "interchainaccount/RegisterIBCAccountPacketData", nil)
-	cdc.RegisterConcrete(RunTxPacketData{}, "interchainaccount/RunTxPacketData", nil)
+	cdc.RegisterConcrete(IBCAccountPacketData{}, "ibcaccount/IBCAccountPacketData", nil)
+	cdc.RegisterConcrete(IBCAccountPacketAcknowledgement{}, "ibcaccount/IBCAccountPacketAcknowledgement", nil)
 }
 
 var (

@@ -193,7 +193,7 @@ func (am AppModule) OnRecvPacket(
 	ctx sdk.Context,
 	packet channeltypes.Packet,
 ) (*sdk.Result, []byte, error) {
-	var data types.InterchainAccountPacket
+	var data types.IBCAccountPacketData
 	// TODO: Remove the usage of global variable "ModuleCdc"
 	if err := types.ModuleCdc.UnmarshalJSON(packet.GetData(), &data); err != nil {
 		return nil, nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "cannot unmarshal interchain account packet data: %s", err.Error())
@@ -201,13 +201,15 @@ func (am AppModule) OnRecvPacket(
 
 	err := am.keeper.OnRecvPacket(ctx, packet)
 
-	switch data.(type) {
-	case types.RegisterIBCAccountPacketData:
-		acknowledgement := types.RegisterIBCAccountPacketAcknowledgement{
+	switch data.Type {
+	case types.Type_REGISTER:
+		acknowledgement := types.IBCAccountPacketAcknowledgement{
 			ChainID: ctx.ChainID(),
-			Success: err == nil,
 		}
-		if err != nil {
+		if err == nil {
+			acknowledgement.Code = 0
+		} else {
+			acknowledgement.Code = 1
 			acknowledgement.Error = err.Error()
 		}
 
@@ -217,16 +219,15 @@ func (am AppModule) OnRecvPacket(
 		return &sdk.Result{
 			Events: ctx.EventManager().Events().ToABCIEvents(),
 		}, nil, nil
-	case types.RunTxPacketData:
-		acknowledgement := types.RunTxPacketAcknowledgement{
-			Code: 0,
+	case types.Type_RUNTX:
+		acknowledgement := types.IBCAccountPacketAcknowledgement{
+			ChainID: ctx.ChainID(),
 		}
-		if err != nil {
-			acknowledgement = types.RunTxPacketAcknowledgement{
-				ChainID: ctx.ChainID(),
-				Code:    1, // TODO: Use codespace.
-				Error:   err.Error(),
-			}
+		if err == nil {
+			acknowledgement.Code = 0
+		} else {
+			acknowledgement.Code = 1
+			acknowledgement.Error = err.Error()
 		}
 
 		return &sdk.Result{

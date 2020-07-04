@@ -77,8 +77,9 @@ func (k Keeper) CreateInterchainAccount(ctx sdk.Context, sourcePort, sourceChann
 		return channel.ErrSequenceSendNotFound
 	}
 
-	packetData := types.RegisterIBCAccountPacketData{
-		Salt: salt,
+	packetData := types.IBCAccountPacketData{
+		Type: types.Type_REGISTER,
+		Data: []byte(salt),
 	}
 
 	// TODO: Add timeout height and timestamp
@@ -153,8 +154,9 @@ func (k Keeper) CreateOutgoingPacket(
 		return channel.ErrSequenceSendNotFound
 	}
 
-	packetData := types.RunTxPacketData{
-		TxBytes: txBytes,
+	packetData := types.IBCAccountPacketData{
+		Type: types.Type_RUNTX,
+		Data: txBytes,
 	}
 
 	// TODO: Add timeout height and timestamp
@@ -256,22 +258,22 @@ func (k Keeper) RunMsg(ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error) {
 }
 
 func (k Keeper) OnRecvPacket(ctx sdk.Context, packet channeltypes.Packet) error {
-	var data types.InterchainAccountPacket
+	var data types.IBCAccountPacketData
 	// TODO: Remove the usage of global variable "ModuleCdc"
 	if err := types.ModuleCdc.UnmarshalJSON(packet.GetData(), &data); err != nil {
 		return sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "cannot unmarshal interchain account packet data: %s", err.Error())
 	}
 
-	switch data := data.(type) {
-	case types.RegisterIBCAccountPacketData:
-		err := k.RegisterIBCAccount(ctx, packet.SourcePort, packet.SourceChannel, data.Salt)
+	switch data.Type {
+	case types.Type_REGISTER:
+		err := k.RegisterIBCAccount(ctx, packet.SourcePort, packet.SourceChannel, string(data.Data))
 		if err != nil {
 			return err
 		}
 
 		return nil
-	case types.RunTxPacketData:
-		msgs, err := k.DeserializeTx(ctx, data.TxBytes)
+	case types.Type_RUNTX:
+		msgs, err := k.DeserializeTx(ctx, data.Data)
 		if err != nil {
 			return err
 		}

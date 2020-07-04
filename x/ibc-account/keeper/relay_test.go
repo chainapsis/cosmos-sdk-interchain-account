@@ -21,7 +21,7 @@ func (suite *KeeperTestSuite) TestCreateIBCAccount() {
 	suite.Require().Greater(len(packetCommitment), 0, "packet commitment is empty")
 
 	packet := channeltypes.NewPacket(
-		types.RegisterIBCAccountPacketData{Salt: testSalt}.GetBytes(),
+		types.IBCAccountPacketData{Type: types.Type_REGISTER, Data: []byte(testSalt)}.GetBytes(),
 		1,
 		testPort1,
 		testChannel1,
@@ -90,7 +90,7 @@ func (suite *KeeperTestSuite) TestRunTx() {
 	packetTxBytes, err := keeper.SerializeCosmosTx(suite.chainB.App.Codec())(sendMsg)
 	suite.Require().Nil(err)
 	packet := channeltypes.NewPacket(
-		types.RunTxPacketData{TxBytes: packetTxBytes}.GetBytes(),
+		types.IBCAccountPacketData{Type: types.Type_RUNTX, Data: packetTxBytes}.GetBytes(),
 		2,
 		testPort1,
 		testChannel1,
@@ -138,7 +138,7 @@ func (suite *KeeperTestSuite) TestRunTx() {
 	packetTxBytes, err = keeper.SerializeCosmosTx(suite.chainB.App.Codec())(sendMsg)
 	suite.Require().Nil(err)
 	packet = channeltypes.NewPacket(
-		types.RunTxPacketData{TxBytes: packetTxBytes}.GetBytes(),
+		types.IBCAccountPacketData{Type: types.Type_RUNTX, Data: packetTxBytes}.GetBytes(),
 		2,
 		testPort1,
 		testChannel1,

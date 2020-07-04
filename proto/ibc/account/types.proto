@@ -3,22 +3,19 @@ package ibc.account;
 
 option go_package = "github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types";
 
-message RegisterIBCAccountPacketData {
-    string salt = 1;
+enum Type {
+    REGISTER = 0;
+    RUNTX = 1;
 }
 
-message RunTxPacketData {
-    bytes txBytes = 1;
+message IBCAccountPacketData {
+    Type type = 1;
+    bytes data = 3;
 }
 
-message RegisterIBCAccountPacketAcknowledgement {
-    string chainID = 1;
-    bool   success = 2;
-    string error = 3;
-}
-
-message RunTxPacketAcknowledgement {
-    string chainID = 1;
-    uint32 code = 2;
-    string error = 3;
+message IBCAccountPacketAcknowledgement {
+    Type type = 1;
+    string chainID = 2;
+    uint32 code = 3;
+    string error = 4;
 }
