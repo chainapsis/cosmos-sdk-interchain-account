@@ -35,7 +35,7 @@ func (suite *KeeperTestSuite) TestCreateIBCAccount() {
 	err = suite.chainB.App.IBCAccountKeeper.OnRecvPacket(suite.chainB.GetContext(), packet)
 	suite.Require().Nil(err)
 
-	acc := suite.chainB.App.AccountKeeper.GetAccount(suite.chainB.GetContext(), suite.chainB.App.IBCAccountKeeper.GenerateAddress(types.GetIdentifier(testPort1, testChannel1), testSalt))
+	acc := suite.chainB.App.AccountKeeper.GetAccount(suite.chainB.GetContext(), suite.chainB.App.IBCAccountKeeper.GenerateAddress(types.GetIdentifier(testPort2, testChannel2), testSalt))
 	suite.Require().NotNil(acc, "ibc account is not registered on counterparty chain")
 }
 
@@ -48,11 +48,22 @@ func (suite *KeeperTestSuite) TestRunTx() {
 	packetCommitment := suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 1)
 	suite.Require().Greater(len(packetCommitment), 0, "packet commitment is empty")
 
-	// TODO: verify a packet with proof
-	err = suite.chainB.App.IBCAccountKeeper.RegisterIBCAccount(suite.chainB.GetContext(), testPort1, testChannel1, testSalt)
+	packet := channeltypes.NewPacket(
+		types.IBCAccountPacketData{Type: types.Type_REGISTER, Data: []byte(testSalt)}.GetBytes(),
+		1,
+		testPort1,
+		testChannel1,
+		testPort2,
+		testChannel2,
+		math.MaxUint64,
+		0,
+	)
+	suite.Require().Equal(packetCommitment, channeltypes.CommitPacket(packet))
+
+	err = suite.chainB.App.IBCAccountKeeper.OnRecvPacket(suite.chainB.GetContext(), packet)
 	suite.Require().Nil(err)
 
-	acc := suite.chainB.App.AccountKeeper.GetAccount(suite.chainB.GetContext(), suite.chainB.App.IBCAccountKeeper.GenerateAddress(types.GetIdentifier(testPort1, testChannel1), testSalt))
+	acc := suite.chainB.App.AccountKeeper.GetAccount(suite.chainB.GetContext(), suite.chainB.App.IBCAccountKeeper.GenerateAddress(types.GetIdentifier(testPort2, testChannel2), testSalt))
 	suite.Require().NotNil(acc, "ibc account is not registered on counterparty chain")
 
 	// Tokens to mint to ibc account.
@@ -74,7 +85,7 @@ func (suite *KeeperTestSuite) TestRunTx() {
 	bal = suite.chainB.App.BankKeeper.GetAllBalances(suite.chainB.GetContext(), acc.GetAddress())
 	suite.Require().Equal(mint, bal)
 
-	testAddress := suite.chainB.App.IBCAccountKeeper.GenerateAddress(types.GetIdentifier(testPort1, "otherchannel"), testSalt)
+	testAddress := suite.chainB.App.IBCAccountKeeper.GenerateAddress(types.GetIdentifier(testPort2, "otherchannel"), testSalt)
 	sendMsg := banktypes.NewMsgSend(acc.GetAddress(), testAddress, sdk.Coins{
 		sdk.Coin{
 			Denom:  "test",
@@ -89,7 +100,7 @@ func (suite *KeeperTestSuite) TestRunTx() {
 
 	packetTxBytes, err := keeper.SerializeCosmosTx(suite.chainB.App.Codec())(sendMsg)
 	suite.Require().Nil(err)
-	packet := channeltypes.NewPacket(
+	packet = channeltypes.NewPacket(
 		types.IBCAccountPacketData{Type: types.Type_RUNTX, Data: packetTxBytes}.GetBytes(),
 		2,
 		testPort1,

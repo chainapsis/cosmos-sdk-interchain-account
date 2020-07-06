@@ -16,11 +16,11 @@ import (
 
 func (k Keeper) RegisterIBCAccount(
 	ctx sdk.Context,
-	sourcePort,
-	sourceChannel,
+	destPort,
+	destChannel,
 	salt string,
 ) error {
-	identifier := types.GetIdentifier(sourcePort, sourceChannel)
+	identifier := types.GetIdentifier(destPort, destChannel)
 	address := k.GenerateAddress(identifier, salt)
 	err := k.CreateAccount(ctx, address, identifier)
 	if err != nil {
@@ -181,8 +181,8 @@ func (k Keeper) DeserializeTx(_ sdk.Context, txBytes []byte) ([]sdk.Msg, error) 
 	return msgs, err
 }
 
-func (k Keeper) RunTx(ctx sdk.Context, sourcePort, sourceChannel string, msgs []sdk.Msg) error {
-	identifier := types.GetIdentifier(sourcePort, sourceChannel)
+func (k Keeper) RunTx(ctx sdk.Context, destPort, destChannel string, msgs []sdk.Msg) error {
+	identifier := types.GetIdentifier(destPort, destChannel)
 	err := k.AuthenticateTx(ctx, msgs, identifier)
 	if err != nil {
 		return err
@@ -266,7 +266,7 @@ func (k Keeper) OnRecvPacket(ctx sdk.Context, packet channeltypes.Packet) error 
 
 	switch data.Type {
 	case types.Type_REGISTER:
-		err := k.RegisterIBCAccount(ctx, packet.SourcePort, packet.SourceChannel, string(data.Data))
+		err := k.RegisterIBCAccount(ctx, packet.DestinationPort, packet.DestinationChannel, string(data.Data))
 		if err != nil {
 			return err
 		}
@@ -278,7 +278,7 @@ func (k Keeper) OnRecvPacket(ctx sdk.Context, packet channeltypes.Packet) error 
 			return err
 		}
 
-		err = k.RunTx(ctx, packet.SourcePort, packet.SourceChannel, msgs)
+		err = k.RunTx(ctx, packet.DestinationPort, packet.DestinationChannel, msgs)
 		if err != nil {
 			return err
 		}
