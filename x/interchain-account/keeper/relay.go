@@ -40,6 +40,8 @@ func (k Keeper) CreateAccount(ctx sdk.Context, address sdk.AccAddress, identifie
 	if account != nil {
 		return sdkerrors.Wrap(types.ErrAccountAlreadyExist, account.String())
 	}
+	// Set account's address if account is nil
+	account = k.accountKeeper.NewAccountWithAddress(ctx, address)
 	k.accountKeeper.SetAccount(ctx, account)
 
 	store := ctx.KVStore(k.storeKey)
