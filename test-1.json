@@ -1,0 +1,10 @@
+{
+  "key": "relayer",
+  "chain-id": "test-1",
+  "rpc-addr": "http://127.0.0.1:16657",
+  "account-prefix": "cosmos",
+  "gas": 200000,
+  "gas-prices": "0.0025stake",
+  "default-denom": "stake",
+  "trusting-period": "330h"
+}
