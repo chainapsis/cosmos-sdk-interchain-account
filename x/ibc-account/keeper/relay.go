@@ -14,6 +14,8 @@ import (
 	"github.com/tendermint/tendermint/crypto/tmhash"
 )
 
+// RegisterIBCAccount performs registering IBC account.
+// It will generate the deterministic address by hashing {sourcePort}/{sourceChannel}{salt}.
 func (k Keeper) RegisterIBCAccount(
 	ctx sdk.Context,
 	destPort,
@@ -30,6 +32,8 @@ func (k Keeper) RegisterIBCAccount(
 	return nil
 }
 
+// Create the account if an account with the same address does not exist.
+// It will save the address and matched identifier.
 func (k Keeper) CreateAccount(ctx sdk.Context, address sdk.AccAddress, identifier string) error {
 	account := k.accountKeeper.GetAccount(ctx, address)
 	// TODO: Discuss the vulnerabilities when creating a new account only if the old account does not exist
@@ -57,6 +61,9 @@ func (k Keeper) GenerateAddress(identifier string, salt string) []byte {
 	return tmhash.SumTruncated([]byte(identifier + salt))
 }
 
+// CreateInterchainAccount try to register IBC account to source channel.
+// If no source channel exists or doesn't have capability, it will return error.
+// Salt is used to generate deterministic address.
 func (k Keeper) CreateInterchainAccount(ctx sdk.Context, sourcePort, sourceChannel, salt string) error {
 	sourceChannelEnd, found := k.channelKeeper.GetChannel(ctx, sourcePort, sourceChannel)
 	if !found {
@@ -97,6 +104,7 @@ func (k Keeper) CreateInterchainAccount(ctx sdk.Context, sourcePort, sourceChann
 	return k.channelKeeper.SendPacket(ctx, channelCap, packet)
 }
 
+// RequestRunTx try to send messages to source channel.
 func (k Keeper) RequestRunTx(ctx sdk.Context, sourcePort, sourceChannel, chainType string, data interface{}) error {
 	sourceChannelEnd, found := k.channelKeeper.GetChannel(ctx, sourcePort, sourceChannel)
 	if !found {
@@ -222,6 +230,8 @@ func (k Keeper) RunTx(ctx sdk.Context, destPort, destChannel string, msgs []sdk.
 	return nil
 }
 
+// AuthenticateTx verifies that the messages have the right permission.
+// It will check that the message's signers are the IBC account created by the right chain.
 func (k Keeper) AuthenticateTx(ctx sdk.Context, msgs []sdk.Msg, identifier string) error {
 	seen := map[string]bool{}
 	var signers []sdk.AccAddress
@@ -248,6 +258,8 @@ func (k Keeper) AuthenticateTx(ctx sdk.Context, msgs []sdk.Msg, identifier strin
 	return nil
 }
 
+// RunMsg executes the message.
+// It tries to get the handler from router. And, if router exites, it will perform message.
 func (k Keeper) RunMsg(ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error) {
 	hander := k.router.Route(ctx, msg.Route())
 	if hander == nil {
