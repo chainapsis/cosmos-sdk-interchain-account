@@ -243,8 +243,24 @@ func (am AppModule) OnAcknowledgementPacket(
 	packet channeltypes.Packet,
 	acknowledgement []byte,
 ) (*sdk.Result, error) {
-	// TODO
-	return nil, nil
+	var ack types.IBCAccountPacketAcknowledgement
+	if err := types.ModuleCdc.UnmarshalJSON(acknowledgement, &ack); err != nil {
+		return nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "cannot unmarshal ICS-27 interchain account packet acknowledgment: %v", err)
+	}
+	var data types.IBCAccountPacketData
+	if err := types.ModuleCdc.UnmarshalJSON(packet.GetData(), &data); err != nil {
+		return nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "cannot unmarshal ICS-27 interchain account packet data: %s", err.Error())
+	}
+
+	if err := am.keeper.OnAcknowledgementPacket(ctx, packet, data, ack); err != nil {
+		return nil, err
+	}
+
+	// TODO: Add events.
+
+	return &sdk.Result{
+		Events: ctx.EventManager().Events().ToABCIEvents(),
+	}, nil
 }
 
 func (am AppModule) OnTimeoutPacket(

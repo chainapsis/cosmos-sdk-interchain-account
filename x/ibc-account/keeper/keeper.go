@@ -52,6 +52,7 @@ func SerializeCosmosTx(codec *codec.Codec) func(data interface{}) ([]byte, error
 type CounterpartyInfo struct {
 	// This method used to marshal transaction for counterparty chain.
 	SerializeTx func(data interface{}) ([]byte, error)
+	hook        types.IBCAccountHooks
 }
 
 // Keeper defines the IBC transfer keeper

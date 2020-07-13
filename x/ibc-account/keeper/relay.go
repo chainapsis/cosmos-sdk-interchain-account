@@ -64,7 +64,7 @@ func (k Keeper) GenerateAddress(identifier string, salt string) []byte {
 // CreateInterchainAccount try to register IBC account to source channel.
 // If no source channel exists or doesn't have capability, it will return error.
 // Salt is used to generate deterministic address.
-func (k Keeper) CreateInterchainAccount(ctx sdk.Context, sourcePort, sourceChannel, salt string) error {
+func (k Keeper) CreateInterchainAccount(ctx sdk.Context, chainID, sourcePort, sourceChannel, salt string) error {
 	sourceChannelEnd, found := k.channelKeeper.GetChannel(ctx, sourcePort, sourceChannel)
 	if !found {
 		return sdkerrors.Wrap(channeltypes.ErrChannelNotFound, sourceChannel)
@@ -100,6 +100,13 @@ func (k Keeper) CreateInterchainAccount(ctx sdk.Context, sourcePort, sourceChann
 		math.MaxUint64,
 		0,
 	)
+
+	info, ok := k.counterpartyInfos[chainID]
+	if ok {
+		if info.hook != nil {
+			info.hook.WillAccountCreate(ctx, chainID, k.GenerateAddress(types.GetIdentifier(destinationPort, destinationChannel), salt))
+		}
+	}
 
 	return k.channelKeeper.SendPacket(ctx, channelCap, packet)
 }
@@ -299,4 +306,25 @@ func (k Keeper) OnRecvPacket(ctx sdk.Context, packet channeltypes.Packet) error 
 	default:
 		return types.ErrUnknownPacketData
 	}
+}
+
+func (k Keeper) OnAcknowledgementPacket(ctx sdk.Context, packet channeltypes.Packet, data types.IBCAccountPacketData, ack types.IBCAccountPacketAcknowledgement) error {
+	switch ack.Type {
+	case types.Type_REGISTER:
+		if ack.Code == 0 {
+			info, ok := k.counterpartyInfos[ack.ChainID]
+			if ok {
+				if info.hook != nil {
+					info.hook.WillAccountCreate(ctx, ack.ChainID, k.GenerateAddress(types.GetIdentifier(packet.DestinationPort, packet.DestinationChannel), string(data.Data)))
+				}
+			}
+		}
+		return nil
+	case types.Type_RUNTX:
+		break
+	default:
+		panic("unknown type of acknowledgement")
+	}
+
+	return nil
 }

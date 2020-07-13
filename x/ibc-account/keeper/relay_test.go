@@ -14,7 +14,7 @@ import (
 func (suite *KeeperTestSuite) TestCreateIBCAccount() {
 	suite.initChannelAtoB()
 
-	err := suite.chainA.App.IBCAccountKeeper.CreateInterchainAccount(suite.chainA.GetContext(), testPort1, testChannel1, testSalt)
+	err := suite.chainA.App.IBCAccountKeeper.CreateInterchainAccount(suite.chainA.GetContext(), testClientIDB, testPort1, testChannel1, testSalt)
 	suite.Require().Nil(err, "could not request creating ia account")
 
 	packetCommitment := suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 1)
@@ -42,7 +42,7 @@ func (suite *KeeperTestSuite) TestCreateIBCAccount() {
 func (suite *KeeperTestSuite) TestRunTx() {
 	suite.initChannelAtoB()
 
-	err := suite.chainA.App.IBCAccountKeeper.CreateInterchainAccount(suite.chainA.GetContext(), testPort1, testChannel1, testSalt)
+	err := suite.chainA.App.IBCAccountKeeper.CreateInterchainAccount(suite.chainA.GetContext(), testClientIDB, testPort1, testChannel1, testSalt)
 	suite.Require().Nil(err, "could not request creating ia account")
 
 	packetCommitment := suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 1)
