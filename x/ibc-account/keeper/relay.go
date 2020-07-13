@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"bytes"
+	"encoding/binary"
 	"math"
 
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
@@ -186,6 +187,13 @@ func (k Keeper) CreateOutgoingPacket(
 		0,
 	)
 
+	info, ok := k.counterpartyInfos[chainID]
+	if ok {
+		if info.hook != nil {
+			info.hook.WillTxRun(ctx, chainID, k.ComputeVirtualTxHash(txBytes, sequence), data)
+		}
+	}
+
 	return k.channelKeeper.SendPacket(ctx, channelCap, packet)
 }
 
@@ -276,6 +284,13 @@ func (k Keeper) RunMsg(ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error) {
 	return hander(ctx, msg)
 }
 
+// Compute the virtual tx hash that is used only internally.
+func (k Keeper) ComputeVirtualTxHash(txBytes []byte, seq uint64) []byte {
+	bz := make([]byte, 8)
+	binary.LittleEndian.PutUint64(bz, seq)
+	return tmhash.SumTruncated(append(txBytes, bz...))
+}
+
 func (k Keeper) OnRecvPacket(ctx sdk.Context, packet channeltypes.Packet) error {
 	var data types.IBCAccountPacketData
 	// TODO: Remove the usage of global variable "ModuleCdc"
@@ -321,10 +336,16 @@ func (k Keeper) OnAcknowledgementPacket(ctx sdk.Context, packet channeltypes.Pac
 		}
 		return nil
 	case types.Type_RUNTX:
-		break
+		if ack.Code == 0 {
+			info, ok := k.counterpartyInfos[ack.ChainID]
+			if ok {
+				if info.hook != nil {
+					info.hook.WillTxRun(ctx, ack.ChainID, k.ComputeVirtualTxHash(data.Data, packet.Sequence), data)
+				}
+			}
+		}
+		return nil
 	default:
 		panic("unknown type of acknowledgement")
 	}
-
-	return nil
 }

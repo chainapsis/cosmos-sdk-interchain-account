@@ -9,7 +9,7 @@ type IBCAccountHooks interface {
 	DidAccountCreated(ctx sdk.Context, chainID string, address sdk.AccAddress)
 
 	// Called when tx is requested to IBC account.
-	WillTxRun(ctx sdk.Context, chainID string)
+	WillTxRun(ctx sdk.Context, chainID string, txHash []byte, data interface{})
 	// Called when tx is executed and acknowledgement packet is delivered.
-	DidTxRun(ctx sdk.Context, chainID string)
+	DidTxRun(ctx sdk.Context, chainID string, txHash []byte, data interface{})
 }
