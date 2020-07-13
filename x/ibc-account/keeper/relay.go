@@ -105,7 +105,7 @@ func (k Keeper) CreateInterchainAccount(ctx sdk.Context, sourcePort, sourceChann
 }
 
 // RequestRunTx try to send messages to source channel.
-func (k Keeper) RequestRunTx(ctx sdk.Context, sourcePort, sourceChannel, chainType string, data interface{}) error {
+func (k Keeper) RequestRunTx(ctx sdk.Context, sourcePort, sourceChannel, chainID string, data interface{}) error {
 	sourceChannelEnd, found := k.channelKeeper.GetChannel(ctx, sourcePort, sourceChannel)
 	if !found {
 		return sdkerrors.Wrap(channeltypes.ErrChannelNotFound, sourceChannel)
@@ -114,7 +114,7 @@ func (k Keeper) RequestRunTx(ctx sdk.Context, sourcePort, sourceChannel, chainTy
 	destinationPort := sourceChannelEnd.GetCounterparty().GetPortID()
 	destinationChannel := sourceChannelEnd.GetCounterparty().GetChannelID()
 
-	return k.CreateOutgoingPacket(ctx, sourcePort, sourceChannel, destinationPort, destinationChannel, chainType, data)
+	return k.CreateOutgoingPacket(ctx, sourcePort, sourceChannel, destinationPort, destinationChannel, chainID, data)
 }
 
 func (k Keeper) CreateOutgoingPacket(
