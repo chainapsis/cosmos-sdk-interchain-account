@@ -10,12 +10,13 @@ enum Type {
 
 message IBCAccountPacketData {
     Type type = 1;
-    bytes data = 3;
+    bytes data = 2;
 }
 
 message IBCAccountPacketAcknowledgement {
     Type type = 1;
     string chainID = 2;
     uint32 code = 3;
-    string error = 4;
+    bytes data = 4;
+    string error = 5;
 }
