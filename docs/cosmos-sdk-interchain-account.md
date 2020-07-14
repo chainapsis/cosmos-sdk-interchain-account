@@ -36,7 +36,7 @@ enum Type {
 
 message IBCAccountPacketData {
     Type type = 1;
-    bytes data = 3;
+    bytes data = 2;
 }
 
 message IBCAccountPacketAcknowledgement {
