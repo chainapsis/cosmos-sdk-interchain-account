@@ -316,17 +316,23 @@ func (k Keeper) OnAcknowledgementPacket(ctx sdk.Context, packet channeltypes.Pac
 			info, ok := k.counterpartyInfos[ack.ChainID]
 			if ok {
 				if info.hook != nil {
-					info.hook.WillAccountCreate(ctx, ack.ChainID, k.GenerateAddress(types.GetIdentifier(packet.DestinationPort, packet.DestinationChannel), string(data.Data)))
+					info.hook.OnAccountCreated(ctx, ack.ChainID, k.GenerateAddress(types.GetIdentifier(packet.DestinationPort, packet.DestinationChannel), string(data.Data)))
 				}
 			}
 		}
 		return nil
 	case types.Type_RUNTX:
+		info, ok := k.counterpartyInfos[ack.ChainID]
 		if ack.Code == 0 {
-			info, ok := k.counterpartyInfos[ack.ChainID]
 			if ok {
 				if info.hook != nil {
-					info.hook.WillTxRun(ctx, ack.ChainID, k.ComputeVirtualTxHash(data.Data, packet.Sequence), data)
+					info.hook.OnTxSucceeded(ctx, ack.ChainID, k.ComputeVirtualTxHash(data.Data, packet.Sequence), data.Data)
+				}
+			}
+		} else {
+			if ok {
+				if info.hook != nil {
+					info.hook.OnTxFailed(ctx, ack.ChainID, k.ComputeVirtualTxHash(data.Data, packet.Sequence), data.Data)
 				}
 			}
 		}
