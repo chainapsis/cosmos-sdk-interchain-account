@@ -17,7 +17,7 @@ import (
 
 // RegisterIBCAccount performs registering IBC account.
 // It will generate the deterministic address by hashing {sourcePort}/{sourceChannel}{salt}.
-func (k Keeper) RegisterIBCAccount(
+func (k Keeper) registerIBCAccount(
 	ctx sdk.Context,
 	destPort,
 	destChannel,
@@ -25,7 +25,7 @@ func (k Keeper) RegisterIBCAccount(
 ) error {
 	identifier := types.GetIdentifier(destPort, destChannel)
 	address := k.GenerateAddress(identifier, salt)
-	err := k.CreateAccount(ctx, address, identifier)
+	err := k.createAccount(ctx, address, identifier)
 	if err != nil {
 		return err
 	}
@@ -35,7 +35,7 @@ func (k Keeper) RegisterIBCAccount(
 
 // Create the account if an account with the same address does not exist.
 // It will save the address and matched identifier.
-func (k Keeper) CreateAccount(ctx sdk.Context, address sdk.AccAddress, identifier string) error {
+func (k Keeper) createAccount(ctx sdk.Context, address sdk.AccAddress, identifier string) error {
 	account := k.accountKeeper.GetAccount(ctx, address)
 	// TODO: Discuss the vulnerabilities when creating a new account only if the old account does not exist
 	// Attackers can interrupt creating accounts by sending some assets before the packet is delivered.
@@ -204,7 +204,7 @@ func (k Keeper) DeserializeTx(_ sdk.Context, txBytes []byte) ([]sdk.Msg, error) 
 	return msgs, err
 }
 
-func (k Keeper) RunTx(ctx sdk.Context, destPort, destChannel string, msgs []sdk.Msg) error {
+func (k Keeper) runTx(ctx sdk.Context, destPort, destChannel string, msgs []sdk.Msg) error {
 	identifier := types.GetIdentifier(destPort, destChannel)
 	err := k.AuthenticateTx(ctx, msgs, identifier)
 	if err != nil {
@@ -228,7 +228,7 @@ func (k Keeper) RunTx(ctx sdk.Context, destPort, destChannel string, msgs []sdk.
 	cacheContext, writeFn := ctx.CacheContext()
 	err = nil
 	for _, msg := range msgs {
-		_, msgErr := k.RunMsg(cacheContext, msg)
+		_, msgErr := k.runMsg(cacheContext, msg)
 		if msgErr != nil {
 			err = msgErr
 			break
@@ -275,7 +275,7 @@ func (k Keeper) AuthenticateTx(ctx sdk.Context, msgs []sdk.Msg, identifier strin
 
 // RunMsg executes the message.
 // It tries to get the handler from router. And, if router exites, it will perform message.
-func (k Keeper) RunMsg(ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error) {
+func (k Keeper) runMsg(ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error) {
 	hander := k.router.Route(ctx, msg.Route())
 	if hander == nil {
 		return nil, types.ErrInvalidRoute
@@ -300,7 +300,7 @@ func (k Keeper) OnRecvPacket(ctx sdk.Context, packet channeltypes.Packet) error 
 
 	switch data.Type {
 	case types.Type_REGISTER:
-		err := k.RegisterIBCAccount(ctx, packet.DestinationPort, packet.DestinationChannel, string(data.Data))
+		err := k.registerIBCAccount(ctx, packet.DestinationPort, packet.DestinationChannel, string(data.Data))
 		if err != nil {
 			return err
 		}
@@ -312,7 +312,7 @@ func (k Keeper) OnRecvPacket(ctx sdk.Context, packet channeltypes.Packet) error 
 			return err
 		}
 
-		err = k.RunTx(ctx, packet.DestinationPort, packet.DestinationChannel, msgs)
+		err = k.runTx(ctx, packet.DestinationPort, packet.DestinationChannel, msgs)
 		if err != nil {
 			return err
 		}
