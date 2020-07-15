@@ -65,7 +65,7 @@ func (k Keeper) GenerateAddress(identifier string, salt string) []byte {
 // TryRegisterIBCAccount try to register IBC account to source channel.
 // If no source channel exists or doesn't have capability, it will return error.
 // Salt is used to generate deterministic address.
-func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, chainID, sourcePort, sourceChannel, salt string) error {
+func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, typ, sourcePort, sourceChannel, salt string) error {
 	sourceChannelEnd, found := k.channelKeeper.GetChannel(ctx, sourcePort, sourceChannel)
 	if !found {
 		return sdkerrors.Wrap(channeltypes.ErrChannelNotFound, sourceChannel)
@@ -102,13 +102,6 @@ func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, chainID, sourcePort, sour
 		0,
 	)
 
-	info, ok := k.counterpartyInfos[chainID]
-	if ok {
-		if info.hook != nil {
-			info.hook.WillAccountCreate(ctx, chainID, k.GenerateAddress(types.GetIdentifier(destinationPort, destinationChannel), salt))
-		}
-	}
-
 	return k.channelKeeper.SendPacket(ctx, channelCap, packet)
 }
 
@@ -131,14 +124,14 @@ func (k Keeper) createOutgoingPacket(
 	sourceChannel,
 	destinationPort,
 	destinationChannel,
-	chainID string,
+	typ string,
 	data interface{},
 ) error {
 	if data == nil {
 		return types.ErrInvalidOutgoingData
 	}
 
-	counterpartyInfo, ok := k.counterpartyInfos[chainID]
+	counterpartyInfo, ok := k.GetCounterpartyInfo(typ)
 	if !ok {
 		return types.ErrUnsupportedChain
 	}
@@ -186,13 +179,6 @@ func (k Keeper) createOutgoingPacket(
 		math.MaxUint64,
 		0,
 	)
-
-	info, ok := k.counterpartyInfos[chainID]
-	if ok {
-		if info.hook != nil {
-			info.hook.WillTxRun(ctx, chainID, k.ComputeVirtualTxHash(txBytes, sequence), data)
-		}
-	}
 
 	return k.channelKeeper.SendPacket(ctx, channelCap, packet)
 }

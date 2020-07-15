@@ -63,7 +63,7 @@ type Keeper struct {
 	// TODO: Remove this field and use codec.Marshaler.
 	txCdc *codec.Codec
 
-	// Key is chain id.
+	// Key can be chain type which means what blockchain framework the host chain was built on or just direct chain id.
 	counterpartyInfos map[string]CounterpartyInfo
 
 	channelKeeper types.ChannelKeeper
@@ -94,8 +94,13 @@ func NewKeeper(
 	}
 }
 
-func (k Keeper) AddCounterpartyInfo(chainID string, info CounterpartyInfo) {
-	k.counterpartyInfos[chainID] = info
+func (k Keeper) AddCounterpartyInfo(typ string, info CounterpartyInfo) {
+	k.counterpartyInfos[typ] = info
+}
+
+func (k Keeper) GetCounterpartyInfo(typ string) (CounterpartyInfo, bool) {
+	info, ok := k.counterpartyInfos[typ]
+	return info, ok
 }
 
 func (k Keeper) Logger(ctx sdk.Context) log.Logger {
