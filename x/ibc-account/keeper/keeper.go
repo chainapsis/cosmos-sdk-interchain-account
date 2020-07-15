@@ -67,6 +67,7 @@ type Keeper struct {
 
 	hook types.IBCAccountHooks
 
+	clientKeeper     types.ClientKeeper
 	connectionKeeper types.ConnectionKeeper
 	channelKeeper    types.ChannelKeeper
 	portKeeper       types.PortKeeper
@@ -80,7 +81,7 @@ type Keeper struct {
 // NewKeeper creates a new IBC account Keeper instance
 func NewKeeper(
 	cdc codec.Marshaler, txCdc *codec.Codec, key sdk.StoreKey,
-	counterpartyInfos map[string]CounterpartyInfo, channelKeeper types.ChannelKeeper, portKeeper types.PortKeeper,
+	counterpartyInfos map[string]CounterpartyInfo, clientKeeper types.ClientKeeper, connectionKeeper types.ConnectionKeeper, channelKeeper types.ChannelKeeper, portKeeper types.PortKeeper,
 	accountKeeper types.AccountKeeper, scopedKeeper capabilitykeeper.ScopedKeeper, router types.Router,
 ) Keeper {
 	return Keeper{
@@ -88,6 +89,8 @@ func NewKeeper(
 		txCdc:             txCdc,
 		cdc:               cdc,
 		counterpartyInfos: counterpartyInfos,
+		clientKeeper:      clientKeeper,
+		connectionKeeper:  connectionKeeper,
 		channelKeeper:     channelKeeper,
 		portKeeper:        portKeeper,
 		accountKeeper:     accountKeeper,
