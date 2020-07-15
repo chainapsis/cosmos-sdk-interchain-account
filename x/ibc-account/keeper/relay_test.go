@@ -14,7 +14,7 @@ import (
 func (suite *KeeperTestSuite) TestCreateIBCAccount() {
 	suite.initChannelAtoB()
 
-	err := suite.chainA.App.IBCAccountKeeper.CreateInterchainAccount(suite.chainA.GetContext(), testClientIDB, testPort1, testChannel1, testSalt)
+	err := suite.chainA.App.IBCAccountKeeper.TryRegisterIBCAccount(suite.chainA.GetContext(), testClientIDB, testPort1, testChannel1, testSalt)
 	suite.Require().Nil(err, "could not request creating ia account")
 
 	packetCommitment := suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 1)
@@ -42,7 +42,7 @@ func (suite *KeeperTestSuite) TestCreateIBCAccount() {
 func (suite *KeeperTestSuite) TestRunTx() {
 	suite.initChannelAtoB()
 
-	err := suite.chainA.App.IBCAccountKeeper.CreateInterchainAccount(suite.chainA.GetContext(), testClientIDB, testPort1, testChannel1, testSalt)
+	err := suite.chainA.App.IBCAccountKeeper.TryRegisterIBCAccount(suite.chainA.GetContext(), testClientIDB, testPort1, testChannel1, testSalt)
 	suite.Require().Nil(err, "could not request creating ia account")
 
 	packetCommitment := suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 1)
@@ -92,7 +92,7 @@ func (suite *KeeperTestSuite) TestRunTx() {
 			Amount: sdk.NewInt(500),
 		},
 	})
-	err = suite.chainA.App.IBCAccountKeeper.CreateOutgoingPacket(suite.chainA.GetContext(), testPort1, testChannel1, testPort2, testChannel2, testClientIDB, sendMsg)
+	err = suite.chainA.App.IBCAccountKeeper.TryRunTx(suite.chainA.GetContext(), testPort1, testChannel1, testClientIDB, sendMsg)
 	suite.Require().Nil(err)
 
 	packetCommitment = suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 2)
@@ -140,7 +140,7 @@ func (suite *KeeperTestSuite) TestRunTx() {
 		},
 	})
 
-	err = suite.chainA.App.IBCAccountKeeper.CreateOutgoingPacket(suite.chainA.GetContext(), testPort1, testChannel1, testPort2, testChannel2, testClientIDB, sendMsg)
+	err = suite.chainA.App.IBCAccountKeeper.TryRunTx(suite.chainA.GetContext(), testPort1, testChannel1, testClientIDB, sendMsg)
 	suite.Require().Nil(err)
 
 	packetCommitment = suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 3)

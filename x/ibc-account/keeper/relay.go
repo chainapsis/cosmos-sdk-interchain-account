@@ -62,10 +62,10 @@ func (k Keeper) GenerateAddress(identifier string, salt string) []byte {
 	return tmhash.SumTruncated([]byte(identifier + salt))
 }
 
-// CreateInterchainAccount try to register IBC account to source channel.
+// TryRegisterIBCAccount try to register IBC account to source channel.
 // If no source channel exists or doesn't have capability, it will return error.
 // Salt is used to generate deterministic address.
-func (k Keeper) CreateInterchainAccount(ctx sdk.Context, chainID, sourcePort, sourceChannel, salt string) error {
+func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, chainID, sourcePort, sourceChannel, salt string) error {
 	sourceChannelEnd, found := k.channelKeeper.GetChannel(ctx, sourcePort, sourceChannel)
 	if !found {
 		return sdkerrors.Wrap(channeltypes.ErrChannelNotFound, sourceChannel)
@@ -112,8 +112,8 @@ func (k Keeper) CreateInterchainAccount(ctx sdk.Context, chainID, sourcePort, so
 	return k.channelKeeper.SendPacket(ctx, channelCap, packet)
 }
 
-// RequestRunTx try to send messages to source channel.
-func (k Keeper) RequestRunTx(ctx sdk.Context, sourcePort, sourceChannel, chainID string, data interface{}) error {
+// TryRunTx try to send messages to source channel.
+func (k Keeper) TryRunTx(ctx sdk.Context, sourcePort, sourceChannel, chainID string, data interface{}) error {
 	sourceChannelEnd, found := k.channelKeeper.GetChannel(ctx, sourcePort, sourceChannel)
 	if !found {
 		return sdkerrors.Wrap(channeltypes.ErrChannelNotFound, sourceChannel)
@@ -122,10 +122,10 @@ func (k Keeper) RequestRunTx(ctx sdk.Context, sourcePort, sourceChannel, chainID
 	destinationPort := sourceChannelEnd.GetCounterparty().GetPortID()
 	destinationChannel := sourceChannelEnd.GetCounterparty().GetChannelID()
 
-	return k.CreateOutgoingPacket(ctx, sourcePort, sourceChannel, destinationPort, destinationChannel, chainID, data)
+	return k.createOutgoingPacket(ctx, sourcePort, sourceChannel, destinationPort, destinationChannel, chainID, data)
 }
 
-func (k Keeper) CreateOutgoingPacket(
+func (k Keeper) createOutgoingPacket(
 	ctx sdk.Context,
 	sourcePort,
 	sourceChannel,
