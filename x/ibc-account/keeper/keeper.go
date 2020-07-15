@@ -52,7 +52,6 @@ func SerializeCosmosTx(codec *codec.Codec) func(data interface{}) ([]byte, error
 type CounterpartyInfo struct {
 	// This method used to marshal transaction for counterparty chain.
 	SerializeTx func(data interface{}) ([]byte, error)
-	hook        types.IBCAccountHooks
 }
 
 // Keeper defines the IBC transfer keeper
@@ -66,9 +65,12 @@ type Keeper struct {
 	// Key can be chain type which means what blockchain framework the host chain was built on or just direct chain id.
 	counterpartyInfos map[string]CounterpartyInfo
 
-	channelKeeper types.ChannelKeeper
-	portKeeper    types.PortKeeper
-	accountKeeper types.AccountKeeper
+	hook types.IBCAccountHooks
+
+	connectionKeeper types.ConnectionKeeper
+	channelKeeper    types.ChannelKeeper
+	portKeeper       types.PortKeeper
+	accountKeeper    types.AccountKeeper
 
 	scopedKeeper capabilitykeeper.ScopedKeeper
 
