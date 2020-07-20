@@ -1,24 +1,22 @@
 package keeper_test
 
 import (
-	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
-	"time"
 	"testing"
-
-	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
-	"github.com/cosmos/cosmos-sdk/x/staking"
-	abci "github.com/tendermint/tendermint/abci/types"
+	"time"
 
 	"github.com/stretchr/testify/suite"
 
-	tmtypes "github.com/tendermint/tendermint/types"
-
-	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/chainapsis/cosmos-sdk-interchain-account/simapp"
+	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	connectiontypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
+	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	ibctmtypes "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
-	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
+	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	abci "github.com/tendermint/tendermint/abci/types"
+	lite "github.com/tendermint/tendermint/lite2"
+	tmtypes "github.com/tendermint/tendermint/types"
 )
 
 // define constants used for testing
@@ -98,7 +96,7 @@ func (chain *TestChain) GetContext() sdk.Context {
 
 func (chain *TestChain) createConnection(
 	connID, counterpartyConnID, clientID, counterpartyClientID string,
-	state ibctypes.State,
+	state connectiontypes.State,
 ) connectiontypes.ConnectionEnd {
 	counterparty := connectiontypes.NewCounterparty(counterpartyClientID, counterpartyConnID, commitmenttypes.NewMerklePrefix(chain.App.IBCKeeper.ConnectionKeeper.GetCommitmentPrefix().Bytes()))
 	connection := connectiontypes.ConnectionEnd{
@@ -122,13 +120,13 @@ func (chain *TestChain) CreateClient(client *TestChain) error {
 
 	// Set HistoricalInfo on client chain after Commit
 	ctxClient := client.GetContext()
-	validator := staking.NewValidator(
-		sdk.ValAddress(client.Vals.Validators[0].Address), client.Vals.Validators[0].PubKey, staking.Description{},
+	validator := stakingtypes.NewValidator(
+		sdk.ValAddress(client.Vals.Validators[0].Address), client.Vals.Validators[0].PubKey, stakingtypes.Description{},
 	)
 	validator.Status = sdk.Bonded
 	validator.Tokens = sdk.NewInt(1000000) // get one voting power
-	validators := []staking.Validator{validator}
-	histInfo := staking.HistoricalInfo{
+	validators := []stakingtypes.Validator{validator}
+	histInfo := stakingtypes.HistoricalInfo{
 		Header: abci.Header{
 			AppHash: commitID.Hash,
 		},
@@ -140,7 +138,7 @@ func (chain *TestChain) CreateClient(client *TestChain) error {
 	ctxTarget := chain.GetContext()
 
 	// create client
-	clientState, err := ibctmtypes.Initialize(client.ClientID, trustingPeriod, ubdPeriod, maxClockDrift, client.Header)
+	clientState, err := ibctmtypes.Initialize(client.ClientID, lite.DefaultTrustLevel, trustingPeriod, ubdPeriod, maxClockDrift, client.Header, commitmenttypes.GetSDKSpecs())
 	if err != nil {
 		return err
 	}
@@ -164,7 +162,7 @@ func (chain *TestChain) CreateClient(client *TestChain) error {
 
 func (chain *TestChain) createChannel(
 	portID, channelID, counterpartyPortID, counterpartyChannelID string,
-	state ibctypes.State, order ibctypes.Order, connectionID string,
+	state channeltypes.State, order channeltypes.Order, connectionID string,
 ) channeltypes.Channel {
 	counterparty := channeltypes.NewCounterparty(counterpartyPortID, counterpartyChannelID)
 	channel := channeltypes.NewChannel(state, order, counterparty,
