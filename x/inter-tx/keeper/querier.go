@@ -26,7 +26,7 @@ func queryRegistered(ctx sdk.Context, req abci.RequestQuery, k Keeper) ([]byte, 
 		return nil, sdkerrors.Wrap(sdkerrors.ErrJSONUnmarshal, err.Error())
 	}
 
-	registered, err := k.GetInterchainAccount(ctx, params.Account, params.SourcePort, params.SourceChannel)
+	registered, err := k.GetIBCAccount(ctx, params.SourcePort, params.SourceChannel, params.Account)
 	if err != nil {
 		return nil, err
 	}

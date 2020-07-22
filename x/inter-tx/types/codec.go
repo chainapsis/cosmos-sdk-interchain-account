@@ -3,18 +3,19 @@ package types
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
+	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 func RegisterCodec(cdc *codec.Codec) {
 	cdc.RegisterConcrete(MsgRegister{}, "intertx/MsgRegister", nil)
-	cdc.RegisterConcrete(MsgRunTx{}, "intertx/MsgRunTx", nil)
+	cdc.RegisterConcrete(MsgSend{}, "intertx/MsgSend", nil)
 
 }
 
 func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 	registry.RegisterImplementations((*sdk.Msg)(nil), &MsgRegister{})
-	registry.RegisterImplementations((*sdk.Msg)(nil), &MsgRunTx{})
+	registry.RegisterImplementations((*sdk.Msg)(nil), &MsgSend{})
 }
 
 var (
@@ -25,5 +26,6 @@ var (
 
 func init() {
 	RegisterCodec(amino)
+	cryptocodec.RegisterCrypto(amino)
 	amino.Seal()
 }

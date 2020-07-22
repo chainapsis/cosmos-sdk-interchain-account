@@ -1,9 +1,10 @@
 syntax = "proto3";
 package cosmos_sdk_interchain_account.x.inter_tx.v1;
 
-option go_package = "github.com/chainapsis/cosmos-sdk-inter/x/inter-staking/types";
+option go_package = "github.com/chainapsis/cosmos-sdk-interchain-account/x/inter-tx/types";
 
-import "third_party/proto/gogoproto/gogo.proto";
+import "gogoproto/gogo.proto";
+import "cosmos/cosmos.proto";
 
 message MsgRegister {
     // the port on which the packet will be sent
@@ -19,7 +20,7 @@ message MsgRegister {
     ];
 }
 
-message MsgRunTx {
+message MsgSend {
     // the port on which the packet will be sent
     string source_port = 1 [
         (gogoproto.moretags) = "yaml:\"source_port\""
@@ -28,10 +29,22 @@ message MsgRunTx {
     string source_channel = 2 [
         (gogoproto.moretags) = "yaml:\"source_channel\""
     ];
-    bytes msgBytes = 3 [
-        (gogoproto.moretags) = "yaml:\"msg_bytes\""
+    string typ = 3;
+    repeated cosmos.Coin amount = 4 [
+        (gogoproto.nullable) = false,
+        (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
     ];
-    bytes sender = 4 [
+    bytes sender = 5 [
+        (gogoproto.casttype) = "github.com/cosmos/cosmos-sdk/types.AccAddress"
+    ];
+    bytes to_address = 6 [
+        (gogoproto.casttype) = "github.com/cosmos/cosmos-sdk/types.AccAddress",
+        (gogoproto.moretags) = "yaml:\"to_address\""
+    ];
+}
+
+message RegistrationQueue {
+    repeated bytes addresses = 1 [
         (gogoproto.casttype) = "github.com/cosmos/cosmos-sdk/types.AccAddress"
     ];
 }

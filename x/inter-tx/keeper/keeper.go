@@ -1,14 +1,11 @@
 package keeper
 
 import (
-	"fmt"
-
+	ibcacckeeper "github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/keeper"
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/inter-tx/types"
-	ia "github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account"
-	iatypes "github.com/chainapsis/cosmos-sdk-interchain-account/x/interchain-account/types"
 	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/cosmos/cosmos-sdk/store/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 type Keeper struct {
@@ -16,10 +13,10 @@ type Keeper struct {
 	counterpartyTxCdc *codec.Codec
 	storeKey          sdk.StoreKey
 
-	iaKeeper ia.Keeper
+	iaKeeper ibcacckeeper.Keeper
 }
 
-func NewKeeper(cdc codec.Marshaler, counterpartyTxCdc *codec.Codec, storeKey sdk.StoreKey, iaKeeper ia.Keeper) Keeper {
+func NewKeeper(cdc codec.Marshaler, counterpartyTxCdc *codec.Codec, storeKey sdk.StoreKey, iaKeeper ibcacckeeper.Keeper) Keeper {
 	return Keeper{
 		cdc:               cdc,
 		counterpartyTxCdc: counterpartyTxCdc,
@@ -29,69 +26,43 @@ func NewKeeper(cdc codec.Marshaler, counterpartyTxCdc *codec.Codec, storeKey sdk
 	}
 }
 
-//nolint:interfacer
 func (keeper Keeper) RegisterInterchainAccount(ctx sdk.Context, sender sdk.AccAddress, sourcePort, sourceChannel string) error {
 	salt := keeper.GetIncrementalSalt(ctx)
-	err := keeper.iaKeeper.CreateInterchainAccount(ctx, sourcePort, sourceChannel, salt)
+	err := keeper.iaKeeper.TryRegisterIBCAccount(ctx, sourcePort, sourceChannel, salt)
 	if err != nil {
 		return err
 	}
 
-	address := keeper.iaKeeper.GenerateAddress(iatypes.GetIdentifier(sourcePort, sourceChannel), salt)
-
-	kvStore := ctx.KVStore(keeper.storeKey)
-	prefixStore := prefix.NewStore(kvStore, []byte("ia/"))
-
-	key := []byte(fmt.Sprintf("%s/%s/%s", sourcePort, sourceChannel, sender.String()))
-	if prefixStore.Has(key) {
-		return types.ErrIAAccountAlreadyExist
-	}
-	prefixStore.Set(key, address)
+	keeper.pushAddressToRegistrationQueue(ctx, sourcePort, sourceChannel, sender)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent("register-interchain-account",
-		sdk.NewAttribute("expected-address", sdk.AccAddress(address).String()),
 		sdk.NewAttribute("salt", salt)))
 
 	return nil
 }
 
-func (keeper Keeper) RunMsg(ctx sdk.Context, msgBytes []byte, sender sdk.AccAddress, sourcePort, sourceChannel string) error {
-	// TODO: Use counterpart chain's codec.
-	var msg sdk.Msg
-	err := keeper.counterpartyTxCdc.UnmarshalBinaryBare(msgBytes, &msg)
-	if err != nil {
-		return err
-	}
+func (keeper Keeper) GetIBCAccount(ctx sdk.Context, sourcePort, sourceChannel string, address sdk.AccAddress) ([]byte, error) {
+	store := ctx.KVStore(keeper.storeKey)
 
-	return keeper.RunTx(ctx, []sdk.Msg{msg}, sender, sourcePort, sourceChannel)
-}
-
-func (keeper Keeper) RunTx(ctx sdk.Context, msgs []sdk.Msg, sender sdk.AccAddress, sourcePort, sourceChannel string) error {
-	_, err := keeper.GetInterchainAccount(ctx, sender, sourcePort, sourceChannel)
-	if err != nil {
-		return err
-	}
-
-	err = keeper.iaKeeper.RequestRunTx(ctx, sourcePort, sourceChannel, iatypes.CosmosSdkChainType, msgs)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-//nolint:interfacer
-func (keeper Keeper) GetInterchainAccount(ctx sdk.Context, address sdk.AccAddress, sourcePort, sourceChannel string) ([]byte, error) {
-	kvStore := ctx.KVStore(keeper.storeKey)
-	prefixStore := prefix.NewStore(kvStore, []byte("ia/"))
-
-	key := []byte(fmt.Sprintf("%s/%s/%s", sourcePort, sourceChannel, address.String()))
-	if !prefixStore.Has(key) {
+	key := types.KeyRegisteredAccount(sourcePort, sourceChannel, address)
+	if !store.Has(key) {
 		return []byte{}, types.ErrIAAccountNotExist
 	}
-	bz := prefixStore.Get(key)
+	bz := store.Get(key)
 
 	return bz, nil
+}
+
+func (keeper Keeper) TrySendCoins(ctx sdk.Context, sourcePort, sourceChannel string, typ string, fromAddr sdk.AccAddress, toAddr sdk.AccAddress, amt sdk.Coins) error {
+	ibcAccount, err := keeper.GetIBCAccount(ctx, sourcePort, sourceChannel, fromAddr)
+	if err != nil {
+		return err
+	}
+
+	msg := banktypes.NewMsgSend(ibcAccount, toAddr, amt)
+
+	_, err = keeper.iaKeeper.TryRunTx(ctx, sourcePort, sourceChannel, typ, msg)
+	return err
 }
 
 func (keeper Keeper) GetIncrementalSalt(ctx sdk.Context) string {
@@ -109,4 +80,54 @@ func (keeper Keeper) GetIncrementalSalt(ctx sdk.Context) string {
 	kvStore.Set(key, bz)
 
 	return string(bz)
+}
+
+// Push address to registration queue.
+func (keeper Keeper) pushAddressToRegistrationQueue(ctx sdk.Context, sourcePort, sourceChannel string, address sdk.AccAddress) {
+	store := ctx.KVStore(keeper.storeKey)
+
+	queue := types.RegistrationQueue{
+		Addresses: make([]sdk.AccAddress, 0),
+	}
+	bz := store.Get(types.KeyRegistrationQueue(sourcePort, sourceChannel))
+
+	if len(bz) != 0 {
+		keeper.cdc.MustUnmarshalBinaryBare(bz, &queue)
+	}
+
+	queue.Addresses = append(queue.Addresses, address)
+
+	bz = keeper.cdc.MustMarshalBinaryBare(&queue)
+
+	store.Set(types.KeyRegistrationQueue(sourcePort, sourceChannel), bz)
+}
+
+// Pop address from registration queue.
+// If queue is empty, it returns []bytes{}.
+func (keeper Keeper) popAddressFromRegistrationQueue(ctx sdk.Context, sourcePort, sourceChannel string) sdk.AccAddress {
+	store := ctx.KVStore(keeper.storeKey)
+
+	queue := types.RegistrationQueue{
+		Addresses: make([]sdk.AccAddress, 0),
+	}
+	bz := store.Get(types.KeyRegistrationQueue(sourcePort, sourceChannel))
+
+	if len(bz) != 0 {
+		keeper.cdc.MustUnmarshalBinaryBare(bz, &queue)
+	} else {
+		return sdk.AccAddress{}
+	}
+
+	if len(queue.Addresses) == 0 {
+		return sdk.AccAddress{}
+	}
+
+	addr := queue.Addresses[0]
+
+	queue.Addresses = queue.Addresses[1:]
+
+	bz = keeper.cdc.MustMarshalBinaryBare(&queue)
+	store.Set(types.KeyRegistrationQueue(sourcePort, sourceChannel), bz)
+
+	return addr
 }
