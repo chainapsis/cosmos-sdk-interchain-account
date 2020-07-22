@@ -106,10 +106,10 @@ func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, typ, sourcePort, sourceCh
 }
 
 // TryRunTx try to send messages to source channel.
-func (k Keeper) TryRunTx(ctx sdk.Context, sourcePort, sourceChannel, chainID string, data interface{}) error {
+func (k Keeper) TryRunTx(ctx sdk.Context, sourcePort, sourceChannel, chainID string, data interface{}) ([]byte, error) {
 	sourceChannelEnd, found := k.channelKeeper.GetChannel(ctx, sourcePort, sourceChannel)
 	if !found {
-		return sdkerrors.Wrap(channeltypes.ErrChannelNotFound, sourceChannel)
+		return []byte{}, sdkerrors.Wrap(channeltypes.ErrChannelNotFound, sourceChannel)
 	}
 
 	destinationPort := sourceChannelEnd.GetCounterparty().GetPortID()
@@ -126,14 +126,14 @@ func (k Keeper) createOutgoingPacket(
 	destinationChannel,
 	typ string,
 	data interface{},
-) error {
+) ([]byte, error) {
 	if data == nil {
-		return types.ErrInvalidOutgoingData
+		return []byte{}, types.ErrInvalidOutgoingData
 	}
 
 	counterpartyInfo, ok := k.GetCounterpartyInfo(typ)
 	if !ok {
-		return types.ErrUnsupportedChain
+		return []byte{}, types.ErrUnsupportedChain
 	}
 
 	var msgs []sdk.Msg
@@ -144,23 +144,23 @@ func (k Keeper) createOutgoingPacket(
 	case sdk.Msg:
 		msgs = []sdk.Msg{data}
 	default:
-		return types.ErrInvalidOutgoingData
+		return []byte{}, types.ErrInvalidOutgoingData
 	}
 
 	txBytes, err := counterpartyInfo.SerializeTx(msgs)
 	if err != nil {
-		return sdkerrors.Wrap(err, "invalid packet data or codec")
+		return []byte{}, sdkerrors.Wrap(err, "invalid packet data or codec")
 	}
 
 	channelCap, ok := k.scopedKeeper.GetCapability(ctx, host.ChannelCapabilityPath(sourcePort, sourceChannel))
 	if !ok {
-		return sdkerrors.Wrap(channeltypes.ErrChannelCapabilityNotFound, "module does not own channel capability")
+		return []byte{}, sdkerrors.Wrap(channeltypes.ErrChannelCapabilityNotFound, "module does not own channel capability")
 	}
 
 	// get the next sequence
 	sequence, found := k.channelKeeper.GetNextSequenceSend(ctx, sourcePort, sourceChannel)
 	if !found {
-		return channel.ErrSequenceSendNotFound
+		return []byte{}, channel.ErrSequenceSendNotFound
 	}
 
 	packetData := types.IBCAccountPacketData{
@@ -180,7 +180,7 @@ func (k Keeper) createOutgoingPacket(
 		0,
 	)
 
-	return k.channelKeeper.SendPacket(ctx, channelCap, packet)
+	return k.ComputeVirtualTxHash(packetData.Data, packet.Sequence), k.channelKeeper.SendPacket(ctx, channelCap, packet)
 }
 
 func (k Keeper) DeserializeTx(_ sdk.Context, txBytes []byte) ([]sdk.Msg, error) {
