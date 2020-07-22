@@ -4,8 +4,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
-	clientexported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
-	connection "github.com/cosmos/cosmos-sdk/x/ibc/03-connection"
 	channelexported "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 )
@@ -29,16 +27,6 @@ type ChannelKeeper interface {
 	SendPacket(ctx sdk.Context, channelCap *capabilitytypes.Capability, packet channelexported.PacketI) error
 	PacketExecuted(ctx sdk.Context, chanCap *capabilitytypes.Capability, packet channelexported.PacketI, acknowledgement []byte) error
 	ChanCloseInit(ctx sdk.Context, portID, channelID string, chanCap *capabilitytypes.Capability) error
-}
-
-// ClientKeeper defines the expected IBC client keeper
-type ClientKeeper interface {
-	GetClientState(ctx sdk.Context, clientID string) (clientexported.ClientState, bool)
-}
-
-// ConnectionKeeper defines the expected IBC connection keeper
-type ConnectionKeeper interface {
-	GetConnection(ctx sdk.Context, connectionID string) (connection connection.End, found bool)
 }
 
 // PortKeeper defines the expected IBC port keeper

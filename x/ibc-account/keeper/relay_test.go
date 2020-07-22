@@ -5,7 +5,7 @@ import (
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	connection "github.com/cosmos/cosmos-sdk/x/ibc/03-connection"
+	connectiontypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
 	"math"
@@ -14,7 +14,7 @@ import (
 func (suite *KeeperTestSuite) TestCreateIBCAccount() {
 	suite.initChannelAtoB()
 
-	err := suite.chainA.App.IBCAccountKeeper.TryRegisterIBCAccount(suite.chainA.GetContext(), testClientIDB, testPort1, testChannel1, testSalt)
+	err := suite.chainA.App.IBCAccountKeeper.TryRegisterIBCAccount(suite.chainA.GetContext(), testPort1, testChannel1, testSalt)
 	suite.Require().Nil(err, "could not request creating ia account")
 
 	packetCommitment := suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 1)
@@ -42,7 +42,7 @@ func (suite *KeeperTestSuite) TestCreateIBCAccount() {
 func (suite *KeeperTestSuite) TestRunTx() {
 	suite.initChannelAtoB()
 
-	err := suite.chainA.App.IBCAccountKeeper.TryRegisterIBCAccount(suite.chainA.GetContext(), testClientIDB, testPort1, testChannel1, testSalt)
+	err := suite.chainA.App.IBCAccountKeeper.TryRegisterIBCAccount(suite.chainA.GetContext(), testPort1, testChannel1, testSalt)
 	suite.Require().Nil(err, "could not request creating ia account")
 
 	packetCommitment := suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 1)
@@ -182,7 +182,7 @@ func (suite *KeeperTestSuite) initChannelAtoB() {
 	// create client, and open conn/channel
 	err = suite.chainA.CreateClient(suite.chainB)
 	suite.Require().Nil(err, "could not create client")
-	suite.chainA.createConnection(testConnection, testConnection, testClientIDB, testClientIDA, connection.OPEN)
+	suite.chainA.createConnection(testConnection, testConnection, testClientIDB, testClientIDA, connectiontypes.OPEN)
 	suite.chainA.createChannel(testPort1, testChannel1, testPort2, testChannel2, channeltypes.OPEN, channeltypes.ORDERED, testConnection)
 
 	initialSeq := uint64(1)

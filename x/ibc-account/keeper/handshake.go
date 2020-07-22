@@ -4,7 +4,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
-	channel "github.com/cosmos/cosmos-sdk/x/ibc/04-channel"
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	porttypes "github.com/cosmos/cosmos-sdk/x/ibc/05-port/types"
 	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
@@ -38,7 +37,7 @@ func (k Keeper) OnChanOpenInit(
 
 	// Claim channel capability passed back by IBC module
 	if err := k.ClaimCapability(ctx, chanCap, host.ChannelCapabilityPath(portID, channelID)); err != nil {
-		return sdkerrors.Wrap(channel.ErrChannelCapabilityNotFound, err.Error())
+		return sdkerrors.Wrap(channeltypes.ErrChannelCapabilityNotFound, err.Error())
 	}
 
 	// TODO: escrow
@@ -76,7 +75,7 @@ func (k Keeper) OnChanOpenTry(
 
 	// Claim channel capability passed back by IBC module
 	if err := k.ClaimCapability(ctx, chanCap, host.ChannelCapabilityPath(portID, channelID)); err != nil {
-		return sdkerrors.Wrap(channel.ErrChannelCapabilityNotFound, err.Error())
+		return sdkerrors.Wrap(channeltypes.ErrChannelCapabilityNotFound, err.Error())
 	}
 
 	// TODO: escrow

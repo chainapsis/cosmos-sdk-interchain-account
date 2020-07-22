@@ -9,7 +9,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/store/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	channel "github.com/cosmos/cosmos-sdk/x/ibc/04-channel"
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
 	"github.com/tendermint/tendermint/crypto/tmhash"
@@ -82,7 +81,7 @@ func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, sourcePort, sourceChannel
 	// get the next sequence
 	sequence, found := k.channelKeeper.GetNextSequenceSend(ctx, sourcePort, sourceChannel)
 	if !found {
-		return channel.ErrSequenceSendNotFound
+		return channeltypes.ErrSequenceSendNotFound
 	}
 
 	packetData := types.IBCAccountPacketData{
@@ -160,7 +159,7 @@ func (k Keeper) createOutgoingPacket(
 	// get the next sequence
 	sequence, found := k.channelKeeper.GetNextSequenceSend(ctx, sourcePort, sourceChannel)
 	if !found {
-		return []byte{}, channel.ErrSequenceSendNotFound
+		return []byte{}, channeltypes.ErrSequenceSendNotFound
 	}
 
 	packetData := types.IBCAccountPacketData{
@@ -169,7 +168,7 @@ func (k Keeper) createOutgoingPacket(
 	}
 
 	// TODO: Add timeout height and timestamp
-	packet := channel.NewPacket(
+	packet := channeltypes.NewPacket(
 		packetData.GetBytes(),
 		sequence,
 		sourcePort,
