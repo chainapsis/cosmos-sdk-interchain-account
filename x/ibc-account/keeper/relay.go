@@ -9,8 +9,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/store/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
-	connectiontypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	channel "github.com/cosmos/cosmos-sdk/x/ibc/04-channel"
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
@@ -67,7 +65,7 @@ func (k Keeper) GenerateAddress(identifier string, salt string) []byte {
 // TryRegisterIBCAccount try to register IBC account to source channel.
 // If no source channel exists or doesn't have capability, it will return error.
 // Salt is used to generate deterministic address.
-func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, typ, sourcePort, sourceChannel, salt string) error {
+func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, sourcePort, sourceChannel, salt string) error {
 	sourceChannelEnd, found := k.channelKeeper.GetChannel(ctx, sourcePort, sourceChannel)
 	if !found {
 		return sdkerrors.Wrap(channeltypes.ErrChannelNotFound, sourceChannel)
@@ -108,10 +106,10 @@ func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, typ, sourcePort, sourceCh
 }
 
 // TryRunTx try to send messages to source channel.
-func (k Keeper) TryRunTx(ctx sdk.Context, sourcePort, sourceChannel, chainID string, data interface{}) error {
+func (k Keeper) TryRunTx(ctx sdk.Context, sourcePort, sourceChannel, chainID string, data interface{}) ([]byte, error) {
 	sourceChannelEnd, found := k.channelKeeper.GetChannel(ctx, sourcePort, sourceChannel)
 	if !found {
-		return sdkerrors.Wrap(channeltypes.ErrChannelNotFound, sourceChannel)
+		return []byte{}, sdkerrors.Wrap(channeltypes.ErrChannelNotFound, sourceChannel)
 	}
 
 	destinationPort := sourceChannelEnd.GetCounterparty().GetPortID()
@@ -128,14 +126,14 @@ func (k Keeper) createOutgoingPacket(
 	destinationChannel,
 	typ string,
 	data interface{},
-) error {
+) ([]byte, error) {
 	if data == nil {
-		return types.ErrInvalidOutgoingData
+		return []byte{}, types.ErrInvalidOutgoingData
 	}
 
 	counterpartyInfo, ok := k.GetCounterpartyInfo(typ)
 	if !ok {
-		return types.ErrUnsupportedChain
+		return []byte{}, types.ErrUnsupportedChain
 	}
 
 	var msgs []sdk.Msg
@@ -146,23 +144,23 @@ func (k Keeper) createOutgoingPacket(
 	case sdk.Msg:
 		msgs = []sdk.Msg{data}
 	default:
-		return types.ErrInvalidOutgoingData
+		return []byte{}, types.ErrInvalidOutgoingData
 	}
 
 	txBytes, err := counterpartyInfo.SerializeTx(msgs)
 	if err != nil {
-		return sdkerrors.Wrap(err, "invalid packet data or codec")
+		return []byte{}, sdkerrors.Wrap(err, "invalid packet data or codec")
 	}
 
 	channelCap, ok := k.scopedKeeper.GetCapability(ctx, host.ChannelCapabilityPath(sourcePort, sourceChannel))
 	if !ok {
-		return sdkerrors.Wrap(channeltypes.ErrChannelCapabilityNotFound, "module does not own channel capability")
+		return []byte{}, sdkerrors.Wrap(channeltypes.ErrChannelCapabilityNotFound, "module does not own channel capability")
 	}
 
 	// get the next sequence
 	sequence, found := k.channelKeeper.GetNextSequenceSend(ctx, sourcePort, sourceChannel)
 	if !found {
-		return channel.ErrSequenceSendNotFound
+		return []byte{}, channel.ErrSequenceSendNotFound
 	}
 
 	packetData := types.IBCAccountPacketData{
@@ -182,7 +180,7 @@ func (k Keeper) createOutgoingPacket(
 		0,
 	)
 
-	return k.channelKeeper.SendPacket(ctx, channelCap, packet)
+	return k.ComputeVirtualTxHash(packetData.Data, packet.Sequence), k.channelKeeper.SendPacket(ctx, channelCap, packet)
 }
 
 func (k Keeper) DeserializeTx(_ sdk.Context, txBytes []byte) ([]sdk.Msg, error) {
@@ -316,18 +314,18 @@ func (k Keeper) OnAcknowledgementPacket(ctx sdk.Context, packet channeltypes.Pac
 	case types.Type_REGISTER:
 		if ack.Code == 0 {
 			if k.hook != nil {
-				k.hook.OnAccountCreated(ctx, ack.ChainID, k.GenerateAddress(types.GetIdentifier(packet.DestinationPort, packet.DestinationChannel), string(data.Data)))
+				k.hook.OnAccountCreated(ctx, packet.SourcePort, packet.SourceChannel, k.GenerateAddress(types.GetIdentifier(packet.DestinationPort, packet.DestinationChannel), string(data.Data)))
 			}
 		}
 		return nil
 	case types.Type_RUNTX:
 		if ack.Code == 0 {
 			if k.hook != nil {
-				k.hook.OnTxSucceeded(ctx, ack.ChainID, k.ComputeVirtualTxHash(data.Data, packet.Sequence), data.Data)
+				k.hook.OnTxSucceeded(ctx, packet.SourcePort, packet.SourceChannel, k.ComputeVirtualTxHash(data.Data, packet.Sequence), data.Data)
 			}
 		} else {
 			if k.hook != nil {
-				k.hook.OnTxFailed(ctx, ack.ChainID, k.ComputeVirtualTxHash(data.Data, packet.Sequence), data.Data)
+				k.hook.OnTxFailed(ctx, packet.SourcePort, packet.SourceChannel, k.ComputeVirtualTxHash(data.Data, packet.Sequence), data.Data)
 			}
 		}
 		return nil
@@ -337,26 +335,8 @@ func (k Keeper) OnAcknowledgementPacket(ctx sdk.Context, packet channeltypes.Pac
 }
 
 func (k Keeper) OnTimeoutPacket(ctx sdk.Context, packet channeltypes.Packet, data types.IBCAccountPacketData) error {
-	// Get channel from packet's source port and channel.
-	channel, found := k.channelKeeper.GetChannel(ctx, packet.GetSourcePort(), packet.GetSourceChannel())
-	if !found {
-		return sdkerrors.Wrap(channeltypes.ErrChannelNotFound, packet.GetSourceChannel())
-	}
-
-	// Get connection from packet's hop.
-	connectionEnd, found := k.connectionKeeper.GetConnection(ctx, channel.ConnectionHops[0])
-	if !found {
-		return sdkerrors.Wrap(connectiontypes.ErrConnectionNotFound, channel.ConnectionHops[0])
-	}
-
-	// Get the client state.
-	clientState, found := k.clientKeeper.GetClientState(ctx, connectionEnd.ClientID)
-	if !found {
-		return sdkerrors.Wrap(clienttypes.ErrClientNotFound, connectionEnd.ClientID)
-	}
-
 	if k.hook != nil {
-		k.hook.OnTxFailed(ctx, clientState.GetChainID(), k.ComputeVirtualTxHash(data.Data, packet.Sequence), data.Data)
+		k.hook.OnTxFailed(ctx, packet.SourcePort, packet.SourceChannel, k.ComputeVirtualTxHash(data.Data, packet.Sequence), data.Data)
 	}
 
 	return nil

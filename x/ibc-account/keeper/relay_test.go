@@ -92,7 +92,7 @@ func (suite *KeeperTestSuite) TestRunTx() {
 			Amount: sdk.NewInt(500),
 		},
 	})
-	err = suite.chainA.App.IBCAccountKeeper.TryRunTx(suite.chainA.GetContext(), testPort1, testChannel1, testClientIDB, sendMsg)
+	_, err = suite.chainA.App.IBCAccountKeeper.TryRunTx(suite.chainA.GetContext(), testPort1, testChannel1, testClientIDB, sendMsg)
 	suite.Require().Nil(err)
 
 	packetCommitment = suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 2)
@@ -140,7 +140,7 @@ func (suite *KeeperTestSuite) TestRunTx() {
 		},
 	})
 
-	err = suite.chainA.App.IBCAccountKeeper.TryRunTx(suite.chainA.GetContext(), testPort1, testChannel1, testClientIDB, sendMsg)
+	_, err = suite.chainA.App.IBCAccountKeeper.TryRunTx(suite.chainA.GetContext(), testPort1, testChannel1, testClientIDB, sendMsg)
 	suite.Require().Nil(err)
 
 	packetCommitment = suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 3)
