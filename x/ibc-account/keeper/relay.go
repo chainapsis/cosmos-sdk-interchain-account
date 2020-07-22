@@ -65,7 +65,7 @@ func (k Keeper) GenerateAddress(identifier string, salt string) []byte {
 // TryRegisterIBCAccount try to register IBC account to source channel.
 // If no source channel exists or doesn't have capability, it will return error.
 // Salt is used to generate deterministic address.
-func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, typ, sourcePort, sourceChannel, salt string) error {
+func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, sourcePort, sourceChannel, salt string) error {
 	sourceChannelEnd, found := k.channelKeeper.GetChannel(ctx, sourcePort, sourceChannel)
 	if !found {
 		return sdkerrors.Wrap(channeltypes.ErrChannelNotFound, sourceChannel)
