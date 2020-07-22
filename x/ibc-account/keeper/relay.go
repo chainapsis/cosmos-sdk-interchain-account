@@ -9,8 +9,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/store/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
-	connectiontypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	channel "github.com/cosmos/cosmos-sdk/x/ibc/04-channel"
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
@@ -316,18 +314,18 @@ func (k Keeper) OnAcknowledgementPacket(ctx sdk.Context, packet channeltypes.Pac
 	case types.Type_REGISTER:
 		if ack.Code == 0 {
 			if k.hook != nil {
-				k.hook.OnAccountCreated(ctx, ack.ChainID, k.GenerateAddress(types.GetIdentifier(packet.DestinationPort, packet.DestinationChannel), string(data.Data)))
+				k.hook.OnAccountCreated(ctx, packet.SourcePort, packet.SourceChannel, k.GenerateAddress(types.GetIdentifier(packet.DestinationPort, packet.DestinationChannel), string(data.Data)))
 			}
 		}
 		return nil
 	case types.Type_RUNTX:
 		if ack.Code == 0 {
 			if k.hook != nil {
-				k.hook.OnTxSucceeded(ctx, ack.ChainID, k.ComputeVirtualTxHash(data.Data, packet.Sequence), data.Data)
+				k.hook.OnTxSucceeded(ctx, packet.SourcePort, packet.SourceChannel, k.ComputeVirtualTxHash(data.Data, packet.Sequence), data.Data)
 			}
 		} else {
 			if k.hook != nil {
-				k.hook.OnTxFailed(ctx, ack.ChainID, k.ComputeVirtualTxHash(data.Data, packet.Sequence), data.Data)
+				k.hook.OnTxFailed(ctx, packet.SourcePort, packet.SourceChannel, k.ComputeVirtualTxHash(data.Data, packet.Sequence), data.Data)
 			}
 		}
 		return nil
@@ -337,26 +335,8 @@ func (k Keeper) OnAcknowledgementPacket(ctx sdk.Context, packet channeltypes.Pac
 }
 
 func (k Keeper) OnTimeoutPacket(ctx sdk.Context, packet channeltypes.Packet, data types.IBCAccountPacketData) error {
-	// Get channel from packet's source port and channel.
-	channel, found := k.channelKeeper.GetChannel(ctx, packet.GetSourcePort(), packet.GetSourceChannel())
-	if !found {
-		return sdkerrors.Wrap(channeltypes.ErrChannelNotFound, packet.GetSourceChannel())
-	}
-
-	// Get connection from packet's hop.
-	connectionEnd, found := k.connectionKeeper.GetConnection(ctx, channel.ConnectionHops[0])
-	if !found {
-		return sdkerrors.Wrap(connectiontypes.ErrConnectionNotFound, channel.ConnectionHops[0])
-	}
-
-	// Get the client state.
-	clientState, found := k.clientKeeper.GetClientState(ctx, connectionEnd.ClientID)
-	if !found {
-		return sdkerrors.Wrap(clienttypes.ErrClientNotFound, connectionEnd.ClientID)
-	}
-
 	if k.hook != nil {
-		k.hook.OnTxFailed(ctx, clientState.GetChainID(), k.ComputeVirtualTxHash(data.Data, packet.Sequence), data.Data)
+		k.hook.OnTxFailed(ctx, packet.SourcePort, packet.SourceChannel, k.ComputeVirtualTxHash(data.Data, packet.Sequence), data.Data)
 	}
 
 	return nil
