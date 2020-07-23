@@ -84,6 +84,7 @@ const appName = "DemoApp"
 var (
 	// DefaultNodeHome default home directories for the application daemon
 	DefaultNodeHome = os.ExpandEnv("$HOME/.demod")
+	DefaultCLIHome  = os.ExpandEnv("$HOME/.democli")
 
 	// ModuleBasics defines the module BasicManager is in charge of setting up basic,
 	// non-dependant module elements, such as codec registration
