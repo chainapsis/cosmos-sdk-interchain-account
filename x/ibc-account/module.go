@@ -2,31 +2,32 @@ package ibc_account
 
 import (
 	"encoding/json"
+	"github.com/cosmos/cosmos-sdk/client/context"
+	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 
 	"github.com/gogo/protobuf/grpc"
 
 	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
 
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/keeper"
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
-	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
-	porttypes "github.com/cosmos/cosmos-sdk/x/ibc/05-port/types"
+	port "github.com/cosmos/cosmos-sdk/x/ibc/05-port"
+	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
 	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
 )
 
 var (
 	_ module.AppModule      = AppModule{}
-	_ porttypes.IBCModule        = AppModule{}
+	_ port.IBCModule        = AppModule{}
 	_ module.AppModuleBasic = AppModuleBasic{}
 )
 
@@ -48,16 +49,16 @@ func (AppModuleBasic) ValidateGenesis(_ codec.JSONMarshaler, _ json.RawMessage) 
 	return nil
 }
 
-func (AppModuleBasic) RegisterRESTRoutes(ctx client.Context, rtr *mux.Router) {
+func (AppModuleBasic) RegisterRESTRoutes(ctx context.CLIContext, rtr *mux.Router) {
 	// noop
 }
 
-func (AppModuleBasic) GetTxCmd() *cobra.Command {
+func (AppModuleBasic) GetTxCmd(cdc *codec.Codec) *cobra.Command {
 	// noop
 	return nil
 }
 
-func (AppModuleBasic) GetQueryCmd() *cobra.Command {
+func (AppModuleBasic) GetQueryCmd(cdc *codec.Codec) *cobra.Command {
 	// noop
 	return nil
 }
@@ -82,8 +83,8 @@ func (AppModule) RegisterInvariants(ir sdk.InvariantRegistry) {
 	// noop
 }
 
-func (AppModule) Route() sdk.Route {
-	return sdk.NewRoute(types.RouterKey, nil)
+func (AppModule) Route() string {
+	return types.RouterKey
 }
 
 func (AppModule) NewHandler() sdk.Handler {
@@ -126,7 +127,7 @@ func (am AppModule) EndBlock(ctx sdk.Context, req abci.RequestEndBlock) []abci.V
 // Implement IBCModule callbacks
 func (am AppModule) OnChanOpenInit(
 	ctx sdk.Context,
-	order channeltypes.Order,
+	order ibctypes.Order,
 	connectionHops []string,
 	portID string,
 	channelID string,
@@ -139,7 +140,7 @@ func (am AppModule) OnChanOpenInit(
 
 func (am AppModule) OnChanOpenTry(
 	ctx sdk.Context,
-	order channeltypes.Order,
+	order ibctypes.Order,
 	connectionHops []string,
 	portID,
 	channelID string,
@@ -192,11 +193,11 @@ func (am AppModule) OnChanCloseConfirm(
 func (am AppModule) OnRecvPacket(
 	ctx sdk.Context,
 	packet channeltypes.Packet,
-) (*sdk.Result, []byte, error) {
+) (*sdk.Result, error) {
 	var data types.IBCAccountPacketData
 	// TODO: Remove the usage of global variable "ModuleCdc"
 	if err := types.ModuleCdc.UnmarshalJSON(packet.GetData(), &data); err != nil {
-		return nil, nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "cannot unmarshal interchain account packet data: %s", err.Error())
+		return nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "cannot unmarshal interchain account packet data: %s", err.Error())
 	}
 
 	err := am.keeper.OnRecvPacket(ctx, packet)
@@ -214,11 +215,11 @@ func (am AppModule) OnRecvPacket(
 		}
 
 		if err := am.keeper.PacketExecuted(ctx, packet, acknowledgement.GetBytes()); err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		return &sdk.Result{
 			Events: ctx.EventManager().Events().ToABCIEvents(),
-		}, nil, nil
+		}, nil
 	case types.Type_RUNTX:
 		acknowledgement := types.IBCAccountPacketAcknowledgement{
 			ChainID: ctx.ChainID(),
@@ -230,11 +231,14 @@ func (am AppModule) OnRecvPacket(
 			acknowledgement.Error = err.Error()
 		}
 
+		if err := am.keeper.PacketExecuted(ctx, packet, acknowledgement.GetBytes()); err != nil {
+			return nil, err
+		}
 		return &sdk.Result{
 			Events: ctx.EventManager().Events().ToABCIEvents(),
-		}, acknowledgement.GetBytes(), nil
+		}, nil
 	default:
-		return nil, nil, types.ErrUnknownPacketData
+		return nil, types.ErrUnknownPacketData
 	}
 }
 

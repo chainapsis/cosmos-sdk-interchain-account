@@ -1,10 +1,10 @@
 package rest
 
 import (
-	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/context"
 	"github.com/gorilla/mux"
 )
 
-func RegisterHandlers(clientCtx client.Context, r *mux.Router) {
-	r.HandleFunc("/registered/{source_port}/{source_channel}/{account}", queryRequestHandlerFn(clientCtx)).Methods("GET")
+func RegisterRoutes(cliCtx context.CLIContext, r *mux.Router) {
+	r.HandleFunc("/registered/{source_port}/{source_channel}/{account}", QueryRegisteredRequestHandlerFn(cliCtx)).Methods("GET")
 }

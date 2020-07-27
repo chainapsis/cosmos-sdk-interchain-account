@@ -4,10 +4,12 @@ import (
 	"errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/auth"
+	authexported "github.com/cosmos/cosmos-sdk/x/auth/exported"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
-var _ authtypes.GenesisAccount = (*SimGenesisAccount)(nil)
+var _ authexported.GenesisAccount = (*SimGenesisAccount)(nil)
 
 // SimGenesisAccount defines a type that implements the GenesisAccount interface
 // to be used for simulation accounts in the genesis state.
@@ -35,7 +37,7 @@ func (sga SimGenesisAccount) Validate() error {
 	}
 
 	if sga.ModuleName != "" {
-		ma := authtypes.ModuleAccount{
+		ma := auth.ModuleAccount{
 			BaseAccount: sga.BaseAccount, Name: sga.ModuleName, Permissions: sga.ModulePermissions,
 		}
 		if err := ma.Validate(); err != nil {

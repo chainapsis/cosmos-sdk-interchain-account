@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
 	"testing"
 	"time"
 
@@ -15,7 +16,6 @@ import (
 	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	abci "github.com/tendermint/tendermint/abci/types"
-	lite "github.com/tendermint/tendermint/lite2"
 	tmtypes "github.com/tendermint/tendermint/types"
 )
 
@@ -96,14 +96,14 @@ func (chain *TestChain) GetContext() sdk.Context {
 
 func (chain *TestChain) createConnection(
 	connID, counterpartyConnID, clientID, counterpartyClientID string,
-	state connectiontypes.State,
+	state ibctypes.State,
 ) connectiontypes.ConnectionEnd {
 	counterparty := connectiontypes.NewCounterparty(counterpartyClientID, counterpartyConnID, commitmenttypes.NewMerklePrefix(chain.App.IBCKeeper.ConnectionKeeper.GetCommitmentPrefix().Bytes()))
 	connection := connectiontypes.ConnectionEnd{
 		State:        state,
 		ClientID:     clientID,
 		Counterparty: counterparty,
-		Versions:     connectiontypes.GetCompatibleEncodedVersions(),
+		Versions:     connectiontypes.GetCompatibleVersions(),
 	}
 	ctx := chain.GetContext()
 	chain.App.IBCKeeper.ConnectionKeeper.SetConnection(ctx, connID, connection)
@@ -138,7 +138,7 @@ func (chain *TestChain) CreateClient(client *TestChain) error {
 	ctxTarget := chain.GetContext()
 
 	// create client
-	clientState, err := ibctmtypes.Initialize(client.ClientID, lite.DefaultTrustLevel, trustingPeriod, ubdPeriod, maxClockDrift, client.Header, commitmenttypes.GetSDKSpecs())
+	clientState, err := ibctmtypes.Initialize(client.ClientID, trustingPeriod, ubdPeriod, maxClockDrift, client.Header)
 	if err != nil {
 		return err
 	}
@@ -162,7 +162,7 @@ func (chain *TestChain) CreateClient(client *TestChain) error {
 
 func (chain *TestChain) createChannel(
 	portID, channelID, counterpartyPortID, counterpartyChannelID string,
-	state channeltypes.State, order channeltypes.Order, connectionID string,
+	state ibctypes.State, order ibctypes.Order, connectionID string,
 ) channeltypes.Channel {
 	counterparty := channeltypes.NewCounterparty(counterpartyPortID, counterpartyChannelID)
 	channel := channeltypes.NewChannel(state, order, counterparty,

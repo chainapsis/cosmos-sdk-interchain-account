@@ -5,14 +5,14 @@ import (
 	"net/http"
 
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/inter-tx/types"
-	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/context"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/rest"
 	"github.com/gorilla/mux"
 )
 
-func queryRequestHandlerFn(clientCtx client.Context) http.HandlerFunc {
+func QueryRegisteredRequestHandlerFn(ctx context.CLIContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -26,15 +26,15 @@ func queryRequestHandlerFn(clientCtx client.Context) http.HandlerFunc {
 			return
 		}
 
-		ctx, ok := rest.ParseQueryHeightOrReturnBadRequest(w, clientCtx, r)
+		ctx, ok := rest.ParseQueryHeightOrReturnBadRequest(w, ctx, r)
 		if !ok {
 			return
 		}
 
 		var marshaler codec.JSONMarshaler
 
-		if ctx.JSONMarshaler != nil {
-			marshaler = ctx.JSONMarshaler
+		if ctx.Marshaler != nil {
+			marshaler = ctx.Marshaler
 		} else {
 			marshaler = ctx.Codec
 		}

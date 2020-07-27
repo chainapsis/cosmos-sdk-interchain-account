@@ -94,6 +94,8 @@ github.com/coreos/pkg v0.0.0-20160727233714-3ac0863d7acf/go.mod h1:E3G3o1h8I7cfc
 github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f/go.mod h1:E3G3o1h8I7cfcXa63jLwjI0eiQQMgzzUDFVpN/nH/eA=
 github.com/cosmos/cosmos-sdk v0.34.4-0.20200511222341-80be50319ca5 h1:pUNa8VBC8SBptZTiGSFlZx89JynTZ4+yfUCR6VGMMkw=
 github.com/cosmos/cosmos-sdk v0.34.4-0.20200511222341-80be50319ca5/go.mod h1:T3u1b0ahtqJpdI2Fk6JcmntR7/YLjMq+J6hZrHPZTzc=
+github.com/cosmos/cosmos-sdk v0.34.4-0.20200530180557-ba70f4d4dc2e h1:JR9X7E+GqOaDDO2mUfpIoxA6fVmXDy3FcKs+YjRe30g=
+github.com/cosmos/cosmos-sdk v0.34.4-0.20200530180557-ba70f4d4dc2e/go.mod h1:T3u1b0ahtqJpdI2Fk6JcmntR7/YLjMq+J6hZrHPZTzc=
 github.com/cosmos/cosmos-sdk v0.34.4-0.20200626163604-43837b16e768 h1:ij041Z0/hMjkpF9jjls8lfQefwkllD7VaMmLDCfirs4=
 github.com/cosmos/cosmos-sdk v0.34.4-0.20200626163604-43837b16e768/go.mod h1:BWGzs7B4kgAzzD0njgPLyQbPb6czarq6U7MeUjyU9uk=
 github.com/cosmos/cosmos-sdk v0.34.4-0.20200722165112-e0a81d2cca8f h1:6HnOCSyCF7Ux6y3RfZ+DhaCXta+8UFrwqJ0slrKoc6U=
@@ -349,6 +351,7 @@ github.com/openzipkin/zipkin-go v0.2.1/go.mod h1:NaW6tEwdmWMaCDZzg8sh+IBNOxHMPnh
 github.com/openzipkin/zipkin-go v0.2.2/go.mod h1:NaW6tEwdmWMaCDZzg8sh+IBNOxHMPnhQw8ySjnjRyN4=
 github.com/otiai10/copy v1.1.1 h1:PH7IFlRQ6Fv9vYmuXbDRLdgTHoP1w483kPNUP2bskpo=
 github.com/otiai10/copy v1.1.1/go.mod h1:rrF5dJ5F0t/EWSYODDu4j9/vEeYHMkc8jt0zJChqQWw=
+github.com/otiai10/copy v1.2.0 h1:HvG945u96iNadPoG2/Ja2+AUJeW5YuFQMixq9yirC+k=
 github.com/otiai10/copy v1.2.0/go.mod h1:rrF5dJ5F0t/EWSYODDu4j9/vEeYHMkc8jt0zJChqQWw=
 github.com/otiai10/curr v0.0.0-20150429015615-9b4961190c95/go.mod h1:9qAhocn7zKJG+0mI8eUu6xqkFDYS2kb2saOteoSB3cE=
 github.com/otiai10/curr v1.0.0/go.mod h1:LskTG5wDwr8Rs+nNQ+1LlxRjAtTZZjtJW4rMXl6j4vs=

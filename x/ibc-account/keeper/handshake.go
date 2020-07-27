@@ -6,14 +6,14 @@ import (
 	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	porttypes "github.com/cosmos/cosmos-sdk/x/ibc/05-port/types"
-	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
+	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
 
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
 )
 
 func (k Keeper) OnChanOpenInit(
 	ctx sdk.Context,
-	order channeltypes.Order,
+	order ibctypes.Order,
 	connectionHops []string,
 	portID string,
 	channelID string,
@@ -31,12 +31,12 @@ func (k Keeper) OnChanOpenInit(
 		return sdkerrors.Wrapf(porttypes.ErrInvalidPort, "invalid version: %s, expected %s", version, "ics20-1")
 	}
 
-	if order != channeltypes.ORDERED {
-		return sdkerrors.Wrapf(channeltypes.ErrInvalidChannelOrdering, "invalid channel ordering: %s, expected %s", order.String(), channeltypes.ORDERED.String())
+	if order != ibctypes.ORDERED {
+		return sdkerrors.Wrapf(channeltypes.ErrInvalidChannelOrdering, "invalid channel ordering: %s, expected %s", order.String(), ibctypes.ORDERED.String())
 	}
 
 	// Claim channel capability passed back by IBC module
-	if err := k.ClaimCapability(ctx, chanCap, host.ChannelCapabilityPath(portID, channelID)); err != nil {
+	if err := k.ClaimCapability(ctx, chanCap, ibctypes.ChannelCapabilityPath(portID, channelID)); err != nil {
 		return sdkerrors.Wrap(channeltypes.ErrChannelCapabilityNotFound, err.Error())
 	}
 
@@ -46,7 +46,7 @@ func (k Keeper) OnChanOpenInit(
 
 func (k Keeper) OnChanOpenTry(
 	ctx sdk.Context,
-	order channeltypes.Order,
+	order ibctypes.Order,
 	connectionHops []string,
 	portID,
 	channelID string,
@@ -64,8 +64,8 @@ func (k Keeper) OnChanOpenTry(
 		return sdkerrors.Wrapf(porttypes.ErrInvalidPort, "invalid version: %s, expected %s", version, "ics20-1")
 	}
 
-	if order != channeltypes.ORDERED {
-		return sdkerrors.Wrapf(channeltypes.ErrInvalidChannelOrdering, "invalid channel ordering: %s, expected %s", order.String(), channeltypes.ORDERED.String())
+	if order != ibctypes.ORDERED {
+		return sdkerrors.Wrapf(channeltypes.ErrInvalidChannelOrdering, "invalid channel ordering: %s, expected %s", order.String(), ibctypes.ORDERED.String())
 	}
 
 	// TODO: Check counterparty version
@@ -74,7 +74,7 @@ func (k Keeper) OnChanOpenTry(
 	// }
 
 	// Claim channel capability passed back by IBC module
-	if err := k.ClaimCapability(ctx, chanCap, host.ChannelCapabilityPath(portID, channelID)); err != nil {
+	if err := k.ClaimCapability(ctx, chanCap, ibctypes.ChannelCapabilityPath(portID, channelID)); err != nil {
 		return sdkerrors.Wrap(channeltypes.ErrChannelCapabilityNotFound, err.Error())
 	}
 

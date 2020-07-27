@@ -1,38 +1,43 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
+	"path"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"github.com/tendermint/go-amino"
 	"github.com/tendermint/tendermint/libs/cli"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/keys"
+	"github.com/cosmos/cosmos-sdk/client/lcd"
 	"github.com/cosmos/cosmos-sdk/client/rpc"
-	"github.com/cosmos/cosmos-sdk/server"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/version"
+	"github.com/cosmos/cosmos-sdk/x/auth"
+	authclient "github.com/cosmos/cosmos-sdk/x/auth/client"
 	authcmd "github.com/cosmos/cosmos-sdk/x/auth/client/cli"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	authrest "github.com/cosmos/cosmos-sdk/x/auth/client/rest"
+	"github.com/cosmos/cosmos-sdk/x/bank"
 	bankcmd "github.com/cosmos/cosmos-sdk/x/bank/client/cli"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	"github.com/chainapsis/cosmos-sdk-interchain-account/demo/app"
 )
 
+var (
+	appCodec, cdc = app.MakeCodecs()
+)
+
+func init() {
+	authclient.Codec = appCodec
+}
+
 func main() {
-	encodingConfig := app.MakeEncodingConfig()
-	initClientCtx := client.Context{}.
-		WithJSONMarshaler(encodingConfig.Marshaler).
-		WithTxConfig(encodingConfig.TxConfig).
-		WithCodec(encodingConfig.Amino).
-		WithInput(os.Stdin).
-		WithAccountRetriever(authtypes.NewAccountRetriever(encodingConfig.Marshaler)).
-		WithBroadcastMode(flags.BroadcastBlock).
-		WithHomeDir(app.DefaultNodeHome)
+	// Configure cobra to sort commands
+	cobra.EnableCommandSorting = false
 
 	config := sdk.GetConfig()
 	config.SetBech32PrefixForAccount(sdk.Bech32PrefixAccAddr, sdk.Bech32PrefixAccPub)
@@ -51,41 +56,36 @@ func main() {
 
 	// Add --chain-id to persistent flags and mark it required
 	rootCmd.PersistentFlags().String(flags.FlagChainID, "", "Chain ID of tendermint node")
-	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
-		if err := client.SetCmdClientContextHandler(initClientCtx, cmd); err != nil {
-			return err
-		}
-
-		return server.InterceptConfigsPreRunHandler(cmd)
+	rootCmd.PersistentPreRunE = func(_ *cobra.Command, _ []string) error {
+		return initConfig(rootCmd)
 	}
 
 	// Construct Root Command
 	rootCmd.AddCommand(
 		rpc.StatusCommand(),
-		queryCmd(),
-		txCmd(),
+		client.ConfigCmd(app.DefaultCLIHome),
+		queryCmd(cdc),
+		txCmd(cdc),
 		flags.LineBreak,
+		lcd.ServeCommand(cdc, registerRoutes),
 		flags.LineBreak,
-		keys.Commands(app.DefaultNodeHome),
+		keys.Commands(),
 		flags.LineBreak,
-		version.NewVersionCommand(),
+		version.Cmd,
+		flags.NewCompletionCmd(rootCmd, true),
 	)
-
-	ctx := context.Background()
-	ctx = context.WithValue(ctx, client.ClientContextKey, &client.Context{})
-	ctx = context.WithValue(ctx, server.ServerContextKey, server.NewDefaultContext())
 
 	// Add flags and prefix all env exposed with GA
 	executor := cli.PrepareMainCmd(rootCmd, "GA", app.DefaultCLIHome)
 
-	err := executor.ExecuteContext(ctx)
+	err := executor.Execute()
 	if err != nil {
 		fmt.Printf("Failed executing CLI command: %s, exiting...\n", err)
 		os.Exit(1)
 	}
 }
 
-func queryCmd() *cobra.Command {
+func queryCmd(cdc *amino.Codec) *cobra.Command {
 	queryCmd := &cobra.Command{
 		Use:                        "query",
 		Aliases:                    []string{"q"},
@@ -96,22 +96,22 @@ func queryCmd() *cobra.Command {
 	}
 
 	queryCmd.AddCommand(
-		authcmd.GetAccountCmd(),
+		authcmd.GetAccountCmd(cdc),
 		flags.LineBreak,
-		rpc.ValidatorCommand(),
+		rpc.ValidatorCommand(cdc),
 		rpc.BlockCommand(),
-		authcmd.QueryTxsByEventsCmd(),
-		authcmd.QueryTxCmd(),
+		authcmd.QueryTxsByEventsCmd(cdc),
+		authcmd.QueryTxCmd(cdc),
 		flags.LineBreak,
 	)
 
 	// add modules' query commands
-	app.ModuleBasics.AddQueryCommands(queryCmd)
+	app.ModuleBasics.AddQueryCommands(queryCmd, cdc)
 
 	return queryCmd
 }
 
-func txCmd() *cobra.Command {
+func txCmd(cdc *amino.Codec) *cobra.Command {
 	txCmd := &cobra.Command{
 		Use:                        "tx",
 		Short:                      "Transactions subcommands",
@@ -121,26 +121,26 @@ func txCmd() *cobra.Command {
 	}
 
 	txCmd.AddCommand(
-		bankcmd.NewSendTxCmd(),
+		bankcmd.SendTxCmd(cdc),
 		flags.LineBreak,
-		authcmd.GetSignCommand(),
-		authcmd.GetValidateSignaturesCommand(),
-		authcmd.GetMultiSignCommand(),
+		authcmd.GetSignCommand(cdc),
+		authcmd.GetValidateSignaturesCommand(cdc),
+		authcmd.GetMultiSignCommand(cdc),
 		flags.LineBreak,
-		authcmd.GetBroadcastCommand(),
-		authcmd.GetEncodeCommand(),
-		authcmd.GetDecodeCommand(),
+		authcmd.GetBroadcastCommand(cdc),
+		authcmd.GetEncodeCommand(cdc),
+		authcmd.GetDecodeCommand(cdc),
 		flags.LineBreak,
 	)
 
 	// add modules' tx commands
-	app.ModuleBasics.AddTxCommands(txCmd)
+	app.ModuleBasics.AddTxCommands(txCmd, cdc)
 
 	// remove auth and bank commands as they're mounted under the root tx command
 	var cmdsToRemove []*cobra.Command
 
 	for _, cmd := range txCmd.Commands() {
-		if cmd.Use == authtypes.ModuleName || cmd.Use == banktypes.ModuleName {
+		if cmd.Use == auth.ModuleName || cmd.Use == bank.ModuleName {
 			cmdsToRemove = append(cmdsToRemove, cmd)
 		}
 	}
@@ -148,4 +148,36 @@ func txCmd() *cobra.Command {
 	txCmd.RemoveCommand(cmdsToRemove...)
 
 	return txCmd
+}
+
+// registerRoutes registers the routes from the different modules for the LCD.
+// NOTE: details on the routes added for each module are in the module documentation
+// NOTE: If making updates here you also need to update the test helper in client/lcd/test_helper.go
+func registerRoutes(rs *lcd.RestServer) {
+	client.RegisterRoutes(rs.CliCtx, rs.Mux)
+	authrest.RegisterTxRoutes(rs.CliCtx, rs.Mux)
+	app.ModuleBasics.RegisterRESTRoutes(rs.CliCtx, rs.Mux)
+}
+
+func initConfig(cmd *cobra.Command) error {
+	home, err := cmd.PersistentFlags().GetString(cli.HomeFlag)
+	if err != nil {
+		return err
+	}
+
+	cfgFile := path.Join(home, "config", "config.toml")
+	if _, err := os.Stat(cfgFile); err == nil {
+		viper.SetConfigFile(cfgFile)
+
+		if err := viper.ReadInConfig(); err != nil {
+			return err
+		}
+	}
+	if err := viper.BindPFlag(flags.FlagChainID, cmd.PersistentFlags().Lookup(flags.FlagChainID)); err != nil {
+		return err
+	}
+	if err := viper.BindPFlag(cli.EncodingFlag, cmd.PersistentFlags().Lookup(cli.EncodingFlag)); err != nil {
+		return err
+	}
+	return viper.BindPFlag(cli.OutputFlag, cmd.PersistentFlags().Lookup(cli.OutputFlag))
 }

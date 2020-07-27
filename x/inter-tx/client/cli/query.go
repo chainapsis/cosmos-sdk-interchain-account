@@ -5,13 +5,14 @@ import (
 
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/inter-tx/types"
 	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/context"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/spf13/cobra"
 )
 
-func GetQueryCmd() *cobra.Command {
+func GetQueryCmd(cdc *codec.Codec) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                        types.ModuleName,
 		DisableFlagParsing:         true,
@@ -19,7 +20,7 @@ func GetQueryCmd() *cobra.Command {
 		RunE:                       client.ValidateCmd,
 	}
 
-	// cmd.AddCommand(GetIBCAccountCmd())
+	cmd.AddCommand(GetIBCAccountCmd(cdc))
 
 	return cmd
 }
@@ -29,11 +30,7 @@ func GetIBCAccountCmd(cdc *codec.Codec) *cobra.Command {
 		Use:  "ibcaccount [account] [source-port] [source-channel]",
 		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			clientCtx := client.GetClientContextFromCmd(cmd)
-			clientCtx, err := client.ReadQueryCommandFlags(clientCtx, cmd.Flags())
-			if err != nil {
-				return err
-			}
+			cliCtx := context.NewCLIContext().WithCodec(cdc)
 
 			// Verify bech32 address
 			acc, err := sdk.AccAddressFromBech32(args[0])
@@ -49,7 +46,7 @@ func GetIBCAccountCmd(cdc *codec.Codec) *cobra.Command {
 				return fmt.Errorf("failed to marshal params: %w", err)
 			}
 
-			res, _, err := clientCtx.QueryWithData(route, bz)
+			res, _, err := cliCtx.QueryWithData(route, bz)
 			if err != nil {
 				return err
 			}
@@ -60,11 +57,9 @@ func GetIBCAccountCmd(cdc *codec.Codec) *cobra.Command {
 				return err
 			}
 
-			return clientCtx.PrintOutput(sdk.AccAddress(result).String())
+			return cliCtx.PrintOutput(sdk.AccAddress(result).String())
 		},
 	}
 
-	flags.AddQueryFlagsToCmd(cmd)
-
-	return cmd
+	return flags.GetCommands(cmd)[0]
 }

@@ -1,14 +1,14 @@
 package keeper_test
 
 import (
+	"math"
+
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/keeper"
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	connectiontypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
-	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
-	"math"
+	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
 )
 
 func (suite *KeeperTestSuite) TestCreateIBCAccount() {
@@ -166,7 +166,7 @@ func (suite *KeeperTestSuite) TestRunTx() {
 }
 
 func (suite *KeeperTestSuite) initChannelAtoB() {
-	capName := host.ChannelCapabilityPath(testPort1, testChannel1)
+	capName := ibctypes.ChannelCapabilityPath(testPort1, testChannel1)
 
 	// Add counterparty info.
 	suite.chainA.App.IBCAccountKeeper.AddCounterpartyInfo(testClientIDB, keeper.CounterpartyInfo{
@@ -182,8 +182,8 @@ func (suite *KeeperTestSuite) initChannelAtoB() {
 	// create client, and open conn/channel
 	err = suite.chainA.CreateClient(suite.chainB)
 	suite.Require().Nil(err, "could not create client")
-	suite.chainA.createConnection(testConnection, testConnection, testClientIDB, testClientIDA, connectiontypes.OPEN)
-	suite.chainA.createChannel(testPort1, testChannel1, testPort2, testChannel2, channeltypes.OPEN, channeltypes.ORDERED, testConnection)
+	suite.chainA.createConnection(testConnection, testConnection, testClientIDB, testClientIDA, ibctypes.OPEN)
+	suite.chainA.createChannel(testPort1, testChannel1, testPort2, testChannel2, ibctypes.OPEN, ibctypes.ORDERED, testConnection)
 
 	initialSeq := uint64(1)
 	suite.chainA.App.IBCKeeper.ChannelKeeper.SetNextSequenceSend(suite.chainA.GetContext(), testPort1, testChannel1, initialSeq)
