@@ -28,7 +28,7 @@ func (k Keeper) OnChanOpenInit(
 	}
 
 	if version != types.Version {
-		return sdkerrors.Wrapf(porttypes.ErrInvalidPort, "invalid version: %s, expected %s", version, "ics20-1")
+		return sdkerrors.Wrapf(porttypes.ErrInvalidPort, "invalid version: %s, expected %s", version, "ics27-1")
 	}
 
 	if order != ibctypes.ORDERED {
@@ -61,7 +61,7 @@ func (k Keeper) OnChanOpenTry(
 	}
 
 	if version != types.Version {
-		return sdkerrors.Wrapf(porttypes.ErrInvalidPort, "invalid version: %s, expected %s", version, "ics20-1")
+		return sdkerrors.Wrapf(porttypes.ErrInvalidPort, "invalid version: %s, expected %s", version, "ics27-1")
 	}
 
 	if order != ibctypes.ORDERED {
@@ -70,7 +70,7 @@ func (k Keeper) OnChanOpenTry(
 
 	// TODO: Check counterparty version
 	// if counterpartyVersion != types.Version {
-	// 	return sdkerrors.Wrapf(porttypes.ErrInvalidPort, "invalid counterparty version: %s, expected %s", counterpartyVersion, "ics20-1")
+	// 	return sdkerrors.Wrapf(porttypes.ErrInvalidPort, "invalid counterparty version: %s, expected %s", counterpartyVersion, "ics27-1")
 	// }
 
 	// Claim channel capability passed back by IBC module
