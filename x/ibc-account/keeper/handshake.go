@@ -7,8 +7,6 @@ import (
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	porttypes "github.com/cosmos/cosmos-sdk/x/ibc/05-port/types"
 	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
-
-	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
 )
 
 func (k Keeper) OnChanOpenInit(
@@ -27,9 +25,10 @@ func (k Keeper) OnChanOpenInit(
 		return sdkerrors.Wrapf(porttypes.ErrInvalidPort, "invalid port: %s, expected %s", portID, boundPort)
 	}
 
-	if version != types.Version {
-		return sdkerrors.Wrapf(porttypes.ErrInvalidPort, "invalid version: %s, expected %s", version, "ics27-1")
-	}
+	// TODO: Relayer can't support the custom version of channel. So, commenting the checking version code temporarily
+	// if version != types.Version {
+	// 	return sdkerrors.Wrapf(porttypes.ErrInvalidPort, "invalid version: %s, expected %s", version, "ics27-1")
+	// }
 
 	if order != ibctypes.ORDERED {
 		return sdkerrors.Wrapf(channeltypes.ErrInvalidChannelOrdering, "invalid channel ordering: %s, expected %s", order.String(), ibctypes.ORDERED.String())
@@ -60,9 +59,10 @@ func (k Keeper) OnChanOpenTry(
 		return sdkerrors.Wrapf(porttypes.ErrInvalidPort, "invalid port: %s, expected %s", portID, boundPort)
 	}
 
-	if version != types.Version {
-		return sdkerrors.Wrapf(porttypes.ErrInvalidPort, "invalid version: %s, expected %s", version, "ics27-1")
-	}
+	// TODO: Relayer can't support the custom version of channel. So, commenting the checking version code temporarily
+	// if version != types.Version {
+	// 	return sdkerrors.Wrapf(porttypes.ErrInvalidPort, "invalid version: %s, expected %s", version, "ics27-1")
+	// }
 
 	if order != ibctypes.ORDERED {
 		return sdkerrors.Wrapf(channeltypes.ErrInvalidChannelOrdering, "invalid channel ordering: %s, expected %s", order.String(), ibctypes.ORDERED.String())
