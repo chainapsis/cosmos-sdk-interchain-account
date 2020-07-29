@@ -252,7 +252,11 @@ func NewDemoApp(
 	transferModule := transfer.NewAppModule(app.transferKeeper)
 
 	app.ibcAccountKeeper = ibcaccountkeeper.NewKeeper(appCodec, cdc, keys[ibcaccounttypes.StoreKey],
-		map[string]ibcaccountkeeper.CounterpartyInfo{}, app.ibcKeeper.ChannelKeeper, &app.ibcKeeper.PortKeeper,
+		map[string]ibcaccountkeeper.CounterpartyInfo{
+			"cosmos-sdk": {
+				SerializeTx: ibcaccountkeeper.SerializeCosmosTx(cdc),
+			},
+		}, app, app.ibcKeeper.ChannelKeeper, &app.ibcKeeper.PortKeeper,
 		app.accountKeeper, scopedIBCAccountKeeper, app.Router(),
 	)
 	ibcAccountModule := ibcaccount.NewAppModule(app.ibcAccountKeeper)
@@ -430,4 +434,16 @@ func GetMaccPerms() map[string][]string {
 		dupMaccPerms[k] = v
 	}
 	return dupMaccPerms
+}
+
+func (app *DemoApp) OnAccountCreated(ctx sdk.Context, sourcePort, sourceChannel string, address sdk.AccAddress) {
+	app.interTxKeeper.OnAccountCreated(ctx, sourcePort, sourceChannel, address)
+}
+
+func (*DemoApp) OnTxSucceeded(ctx sdk.Context, sourcePort, sourceChannel string, txHash []byte, txBytes []byte) {
+	// noop
+}
+
+func (*DemoApp) OnTxFailed(ctx sdk.Context, sourcePort, sourceChannel string, txHash []byte, txBytes []byte) {
+	// noop
 }

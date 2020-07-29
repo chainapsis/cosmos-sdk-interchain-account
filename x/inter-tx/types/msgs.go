@@ -5,10 +5,10 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
-var _ sdk.Msg = &MsgRegister{}
+var _ sdk.Msg = MsgRegister{}
 
-func NewMsgRegister(sourcePort string, sourceChannel string, sender sdk.AccAddress) *MsgRegister {
-	return &MsgRegister{SourcePort: sourcePort, SourceChannel: sourceChannel, Sender: sender}
+func NewMsgRegister(sourcePort string, sourceChannel string, sender sdk.AccAddress) MsgRegister {
+	return MsgRegister{SourcePort: sourcePort, SourceChannel: sourceChannel, Sender: sender}
 }
 
 func (MsgRegister) Route() string {
@@ -35,10 +35,10 @@ func (msg MsgRegister) GetSigners() []sdk.AccAddress {
 	return []sdk.AccAddress{msg.Sender}
 }
 
-var _ sdk.Msg = &MsgSend{}
+var _ sdk.Msg = MsgSend{}
 
-func NewMsgSend(sourcePort string, sourceChannel, typ string, amt []sdk.Coin, sender sdk.AccAddress, toAddress sdk.AccAddress) *MsgSend {
-	return &MsgSend{SourcePort: sourcePort, SourceChannel: sourceChannel, Typ: typ, Amount: amt, Sender: sender, ToAddress: toAddress}
+func NewMsgSend(sourcePort string, sourceChannel, typ string, amt []sdk.Coin, sender sdk.AccAddress, toAddress sdk.AccAddress) MsgSend {
+	return MsgSend{SourcePort: sourcePort, SourceChannel: sourceChannel, Typ: typ, Amount: amt, Sender: sender, ToAddress: toAddress}
 }
 
 func (MsgSend) Route() string {

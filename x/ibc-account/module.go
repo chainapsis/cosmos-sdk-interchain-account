@@ -2,6 +2,7 @@ package ibc_account
 
 import (
 	"encoding/json"
+
 	"github.com/cosmos/cosmos-sdk/client/context"
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 
