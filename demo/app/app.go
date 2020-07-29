@@ -251,13 +251,26 @@ func NewDemoApp(
 	)
 	transferModule := transfer.NewAppModule(app.transferKeeper)
 
+	ibcAccountRouter := baseapp.NewRouter()
+	ibcAccountSupportModules := module.NewManager(
+		bank.NewAppModule(appCodec, app.bankKeeper, app.accountKeeper),
+		gov.NewAppModule(appCodec, app.govKeeper, app.accountKeeper, app.bankKeeper),
+		distr.NewAppModule(appCodec, app.distrKeeper, app.accountKeeper, app.bankKeeper, app.stakingKeeper),
+		staking.NewAppModule(appCodec, app.stakingKeeper, app.accountKeeper, app.bankKeeper),
+	)
+	for _, m := range ibcAccountSupportModules.Modules {
+		if m.Route() != "" {
+			ibcAccountRouter.AddRoute(m.Route(), m.NewHandler())
+		}
+	}
+
 	app.ibcAccountKeeper = ibcaccountkeeper.NewKeeper(appCodec, cdc, keys[ibcaccounttypes.StoreKey],
 		map[string]ibcaccountkeeper.CounterpartyInfo{
 			"cosmos-sdk": {
 				SerializeTx: ibcaccountkeeper.SerializeCosmosTx(cdc),
 			},
 		}, app, app.ibcKeeper.ChannelKeeper, &app.ibcKeeper.PortKeeper,
-		app.accountKeeper, scopedIBCAccountKeeper, app.Router(),
+		app.accountKeeper, scopedIBCAccountKeeper, ibcAccountRouter,
 	)
 	ibcAccountModule := ibcaccount.NewAppModule(app.ibcAccountKeeper)
 
