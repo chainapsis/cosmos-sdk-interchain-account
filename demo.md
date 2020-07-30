@@ -77,7 +77,7 @@ democli q bank balances $ibcaccount --chain-id test-2
 democli tx send etc $ibcaccount 1000stake --chain-id test-2
 
 // Test sending assets on intetchain account via ibc.
-democli tx intertx send {other address} 100stake --from etc --chain-id test-1 --source-port interchainaccount --source-channel {find the src channel id on ~/.relayer/config/config.toml} --node tcp://localhost:16657
+democli tx intertx send cosmos-sdk {other address} 100stake --from etc --chain-id test-1 --source-port interchainaccount --source-channel {find the src channel id on ~/.relayer/config/config.toml} --node tcp://localhost:16657
 
 // Wait until relayer relays packet.
 
