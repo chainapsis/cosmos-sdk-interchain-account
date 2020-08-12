@@ -15,10 +15,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client/rpc"
 	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/cosmos/cosmos-sdk/codec/testdata"
 	"github.com/cosmos/cosmos-sdk/server/api"
 	"github.com/cosmos/cosmos-sdk/simapp"
+	simappparams "github.com/cosmos/cosmos-sdk/simapp/params"
 	"github.com/cosmos/cosmos-sdk/std"
+	"github.com/cosmos/cosmos-sdk/testutil/testdata"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/version"
@@ -53,7 +54,8 @@ import (
 	ibctransferkeeper "github.com/cosmos/cosmos-sdk/x/ibc-transfer/keeper"
 	ibctransfertypes "github.com/cosmos/cosmos-sdk/x/ibc-transfer/types"
 	ibcclient "github.com/cosmos/cosmos-sdk/x/ibc/02-client"
-	port "github.com/cosmos/cosmos-sdk/x/ibc/05-port"
+	ibcclienttypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
+	porttypes "github.com/cosmos/cosmos-sdk/x/ibc/05-port/types"
 	ibchost "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
 	ibckeeper "github.com/cosmos/cosmos-sdk/x/ibc/keeper"
 	"github.com/cosmos/cosmos-sdk/x/mint"
@@ -133,7 +135,7 @@ var _ simapp.App = (*SimApp)(nil)
 // capabilities aren't needed for testing.
 type SimApp struct {
 	*baseapp.BaseApp
-	cdc      *codec.Codec
+	cdc      *codec.LegacyAmino
 	appCodec codec.Marshaler
 
 	invCheckPeriod uint
@@ -178,15 +180,18 @@ type SimApp struct {
 // NewSimApp returns a reference to an initialized SimApp.
 func NewSimApp(
 	logger log.Logger, db dbm.DB, traceStore io.Writer, loadLatest bool, skipUpgradeHeights map[int64]bool,
-	homePath string, invCheckPeriod uint, baseAppOptions ...func(*baseapp.BaseApp),
+	homePath string, invCheckPeriod uint, encodingConfig simappparams.EncodingConfig, baseAppOptions ...func(*baseapp.BaseApp),
 ) *SimApp {
 
 	// TODO: Remove cdc in favor of appCodec once all modules are migrated.
-	appCodec, cdc := MakeCodecs()
+	appCodec := encodingConfig.Marshaler
+	cdc := encodingConfig.Amino
+	interfaceRegistry := encodingConfig.InterfaceRegistry
 
 	bApp := baseapp.NewBaseApp(appName, logger, db, authtypes.DefaultTxDecoder(cdc), baseAppOptions...)
 	bApp.SetCommitMultiStoreTracer(traceStore)
 	bApp.SetAppVersion(version.Version)
+	bApp.GRPCQueryRouter().SetAnyUnpacker(interfaceRegistry)
 
 	keys := sdk.NewKVStoreKeys(
 		authtypes.StoreKey, banktypes.StoreKey, stakingtypes.StoreKey,
@@ -211,14 +216,14 @@ func NewSimApp(
 
 	// init params keeper and subspaces
 	app.ParamsKeeper = paramskeeper.NewKeeper(appCodec, keys[paramstypes.StoreKey], tkeys[paramstypes.TStoreKey])
-	app.subspaces[authtypes.ModuleName] = app.ParamsKeeper.Subspace(authtypes.DefaultParamspace)
-	app.subspaces[banktypes.ModuleName] = app.ParamsKeeper.Subspace(banktypes.DefaultParamspace)
-	app.subspaces[stakingtypes.ModuleName] = app.ParamsKeeper.Subspace(stakingtypes.DefaultParamspace)
-	app.subspaces[minttypes.ModuleName] = app.ParamsKeeper.Subspace(minttypes.DefaultParamspace)
-	app.subspaces[distrtypes.ModuleName] = app.ParamsKeeper.Subspace(distrtypes.DefaultParamspace)
-	app.subspaces[slashingtypes.ModuleName] = app.ParamsKeeper.Subspace(slashingtypes.DefaultParamspace)
-	app.subspaces[govtypes.ModuleName] = app.ParamsKeeper.Subspace(govtypes.DefaultParamspace).WithKeyTable(govtypes.ParamKeyTable())
-	app.subspaces[crisistypes.ModuleName] = app.ParamsKeeper.Subspace(crisistypes.DefaultParamspace)
+	app.subspaces[authtypes.ModuleName] = app.ParamsKeeper.Subspace(authtypes.ModuleName)
+	app.subspaces[banktypes.ModuleName] = app.ParamsKeeper.Subspace(banktypes.ModuleName)
+	app.subspaces[stakingtypes.ModuleName] = app.ParamsKeeper.Subspace(stakingtypes.ModuleName)
+	app.subspaces[minttypes.ModuleName] = app.ParamsKeeper.Subspace(minttypes.ModuleName)
+	app.subspaces[distrtypes.ModuleName] = app.ParamsKeeper.Subspace(distrtypes.ModuleName)
+	app.subspaces[slashingtypes.ModuleName] = app.ParamsKeeper.Subspace(slashingtypes.ModuleName)
+	app.subspaces[govtypes.ModuleName] = app.ParamsKeeper.Subspace(govtypes.ModuleName).WithKeyTable(govtypes.ParamKeyTable())
+	app.subspaces[crisistypes.ModuleName] = app.ParamsKeeper.Subspace(crisistypes.ModuleName)
 
 	// set the BaseApp's parameter store
 	bApp.SetParamStore(app.ParamsKeeper.Subspace(baseapp.Paramspace).WithKeyTable(std.ConsensusParamsKeyTable()))
@@ -276,7 +281,7 @@ func NewSimApp(
 	// TODO: remove amino codec dependency once Tendermint version is upgraded with
 	// protobuf changes
 	app.IBCKeeper = ibckeeper.NewKeeper(
-		app.cdc, appCodec, keys[ibchost.StoreKey], app.StakingKeeper, scopedIBCKeeper,
+		appCodec, keys[ibchost.StoreKey], app.StakingKeeper, scopedIBCKeeper,
 	)
 
 	// Create Transfer Keepers
@@ -294,7 +299,7 @@ func NewSimApp(
 	ibcAccountModule := ibcaccount.NewAppModule(app.IBCAccountKeeper)
 
 	// Create static IBC router, add transfer route, then set and seal it
-	ibcRouter := port.NewRouter()
+	ibcRouter := porttypes.NewRouter()
 	ibcRouter.AddRoute(ibctransfertypes.ModuleName, transferModule)
 	ibcRouter.AddRoute(ibcaccounttypes.ModuleName, ibcAccountModule)
 	app.IBCKeeper.SetRouter(ibcRouter)
@@ -304,7 +309,7 @@ func NewSimApp(
 		appCodec, keys[evidencetypes.StoreKey], &app.StakingKeeper, app.SlashingKeeper,
 	)
 	evidenceRouter := evidencetypes.NewRouter().
-		AddRoute(ibcclient.RouterKey, ibcclient.HandlerClientMisbehaviour(app.IBCKeeper.ClientKeeper))
+		AddRoute(ibcclienttypes.RouterKey, ibcclient.HandlerClientMisbehaviour(app.IBCKeeper.ClientKeeper))
 
 	evidenceKeeper.SetRouter(evidenceRouter)
 	app.EvidenceKeeper = *evidenceKeeper
@@ -312,7 +317,10 @@ func NewSimApp(
 	// NOTE: Any module instantiated in the module manager that is later modified
 	// must be passed by reference here.
 	app.mm = module.NewManager(
-		genutil.NewAppModule(app.AccountKeeper, app.StakingKeeper, app.BaseApp.DeliverTx),
+		genutil.NewAppModule(
+			app.AccountKeeper, app.StakingKeeper, app.BaseApp.DeliverTx,
+			encodingConfig.TxConfig,
+		),
 		auth.NewAppModule(appCodec, app.AccountKeeper),
 		bank.NewAppModule(appCodec, app.BankKeeper, app.AccountKeeper),
 		capability.NewAppModule(appCodec, *app.CapabilityKeeper),
@@ -352,7 +360,7 @@ func NewSimApp(
 	)
 
 	app.mm.RegisterInvariants(&app.CrisisKeeper)
-	app.mm.RegisterRoutes(app.Router(), app.QueryRouter())
+	app.mm.RegisterRoutes(app.Router(), app.QueryRouter(), codec.NewAminoCodec(encodingConfig.Amino))
 	app.mm.RegisterQueryServices(app.GRPCQueryRouter())
 
 	// add test gRPC service for testing gRPC queries in isolation
@@ -389,7 +397,8 @@ func NewSimApp(
 	app.SetBeginBlocker(app.BeginBlocker)
 	app.SetAnteHandler(
 		ante.NewAnteHandler(
-			app.AccountKeeper, app.BankKeeper, *app.IBCKeeper, ante.DefaultSigVerificationGasConsumer,
+			app.AccountKeeper, app.BankKeeper, ante.DefaultSigVerificationGasConsumer,
+			encodingConfig.TxConfig.SignModeHandler(),
 		),
 	)
 	app.SetEndBlocker(app.EndBlocker)
@@ -418,7 +427,7 @@ func NewSimApp(
 // MakeCodecs constructs the *std.Codec and *codec.Codec instances used by
 // simapp. It is useful for tests and clients who do not want to construct the
 // full simapp
-func MakeCodecs() (codec.Marshaler, *codec.Codec) {
+func MakeCodecs() (codec.Marshaler, *codec.LegacyAmino) {
 	config := simapp.MakeEncodingConfig()
 	return config.Marshaler, config.Amino
 }
@@ -440,7 +449,7 @@ func (app *SimApp) EndBlocker(ctx sdk.Context, req abci.RequestEndBlock) abci.Re
 func (app *SimApp) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
 	var genesisState GenesisState
 	app.cdc.MustUnmarshalJSON(req.AppStateBytes, &genesisState)
-	return app.mm.InitGenesis(ctx, app.cdc, genesisState)
+	return app.mm.InitGenesis(ctx, app.appCodec, genesisState)
 }
 
 // LoadHeight loads a particular height
@@ -473,7 +482,7 @@ func (app *SimApp) BlockedAddrs() map[string]bool {
 //
 // NOTE: This is solely to be used for testing purposes as it may be desirable
 // for modules to register their own custom testing types.
-func (app *SimApp) Codec() *codec.Codec {
+func (app *SimApp) LegacyAmino() *codec.LegacyAmino {
 	return app.cdc
 }
 

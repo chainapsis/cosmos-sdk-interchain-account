@@ -19,14 +19,14 @@ import (
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
-	port "github.com/cosmos/cosmos-sdk/x/ibc/05-port"
+	porttypes "github.com/cosmos/cosmos-sdk/x/ibc/05-port/types"
 	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
 )
 
 var (
 	_ module.AppModule      = AppModule{}
-	_ port.IBCModule        = AppModule{}
+	_ porttypes.IBCModule   = AppModule{}
 	_ module.AppModuleBasic = AppModuleBasic{}
 )
 
@@ -36,7 +36,7 @@ func (AppModuleBasic) Name() string {
 	return types.ModuleName
 }
 
-func (AppModuleBasic) RegisterCodec(cdc *codec.Codec) {
+func (AppModuleBasic) RegisterCodec(cdc *codec.LegacyAmino) {
 	types.RegisterCodec(cdc)
 }
 

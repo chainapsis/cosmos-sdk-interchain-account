@@ -7,7 +7,7 @@ import (
 	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
 )
 
-func RegisterCodec(cdc *codec.Codec) {
+func RegisterCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(IBCAccountPacketData{}, "ibcaccount/IBCAccountPacketData", nil)
 	cdc.RegisterConcrete(IBCAccountPacketAcknowledgement{}, "ibcaccount/IBCAccountPacketAcknowledgement", nil)
 }
