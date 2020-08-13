@@ -6,11 +6,12 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	capabilitykeeper "github.com/cosmos/cosmos-sdk/x/capability/keeper"
 	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
-	channel "github.com/cosmos/cosmos-sdk/x/ibc/04-channel"
 	channelexported "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
+	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
 
-	"github.com/cosmos/cosmos-sdk/codec"
+	codec "github.com/cosmos/cosmos-sdk/codec"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/tendermint/tendermint/libs/log"
@@ -28,7 +29,7 @@ const (
 	DefaultPacketTimeoutTimestamp = 0 // NOTE: in nanoseconds
 )
 
-func SerializeCosmosTx(codec *codec.Codec) func(data interface{}) ([]byte, error) {
+func SerializeCosmosTx(cdc codec.BinaryMarshaler, registry codectypes.InterfaceRegistry) func(data interface{}) ([]byte, error) {
 	return func(data interface{}) ([]byte, error) {
 		msgs := make([]sdk.Msg, 0)
 		switch data := data.(type) {
@@ -40,7 +41,25 @@ func SerializeCosmosTx(codec *codec.Codec) func(data interface{}) ([]byte, error
 			return nil, types.ErrInvalidOutgoingData
 		}
 
-		bz, err := codec.MarshalBinaryBare(msgs)
+		msgAnys := make([]*codectypes.Any, len(msgs))
+
+		for i, msg := range msgs {
+			var err error
+			msgAnys[i], err = codectypes.NewAnyWithValue(msg)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		txBody := &types.IBCTxBody{
+			Messages: msgAnys,
+		}
+
+		txRaw := &types.IBCTxRaw{
+			BodyBytes: cdc.MustMarshalBinaryBare(txBody),
+		}
+
+		bz, err := cdc.MarshalBinaryBare(txRaw)
 		if err != nil {
 			return nil, err
 		}
@@ -57,10 +76,7 @@ type CounterpartyInfo struct {
 // Keeper defines the IBC transfer keeper
 type Keeper struct {
 	storeKey sdk.StoreKey
-	cdc      codec.Marshaler
-
-	// TODO: Remove this field and use codec.Marshaler.
-	txCdc *codec.Codec
+	cdc      codec.BinaryMarshaler
 
 	// Key can be chain type which means what blockchain framework the host chain was built on or just direct chain id.
 	counterpartyInfos map[string]CounterpartyInfo
@@ -78,13 +94,12 @@ type Keeper struct {
 
 // NewKeeper creates a new IBC account Keeper instance
 func NewKeeper(
-	cdc codec.Marshaler, txCdc *codec.Codec, key sdk.StoreKey,
+	cdc codec.BinaryMarshaler, key sdk.StoreKey,
 	counterpartyInfos map[string]CounterpartyInfo, channelKeeper types.ChannelKeeper, portKeeper types.PortKeeper,
 	accountKeeper types.AccountKeeper, scopedKeeper capabilitykeeper.ScopedKeeper, router types.Router,
 ) Keeper {
 	return Keeper{
 		storeKey:          key,
-		txCdc:             txCdc,
 		cdc:               cdc,
 		counterpartyInfos: counterpartyInfos,
 		channelKeeper:     channelKeeper,
@@ -111,7 +126,7 @@ func (k Keeper) Logger(ctx sdk.Context) log.Logger {
 func (k Keeper) PacketExecuted(ctx sdk.Context, packet channelexported.PacketI, acknowledgement []byte) error {
 	chanCap, ok := k.scopedKeeper.GetCapability(ctx, host.ChannelCapabilityPath(packet.GetDestPort(), packet.GetDestChannel()))
 	if !ok {
-		return sdkerrors.Wrap(channel.ErrChannelCapabilityNotFound, "channel capability could not be retrieved for packet")
+		return sdkerrors.Wrap(channeltypes.ErrChannelCapabilityNotFound, "channel capability could not be retrieved for packet")
 	}
 	return k.channelKeeper.PacketExecuted(ctx, chanCap, packet, acknowledgement)
 }

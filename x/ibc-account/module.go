@@ -16,7 +16,7 @@ import (
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
-	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	porttypes "github.com/cosmos/cosmos-sdk/x/ibc/05-port/types"
@@ -37,14 +37,14 @@ func (AppModuleBasic) Name() string {
 }
 
 func (AppModuleBasic) RegisterCodec(cdc *codec.LegacyAmino) {
-	types.RegisterCodec(cdc)
+	// noop
 }
 
 func (AppModuleBasic) DefaultGenesis(cdc codec.JSONMarshaler) json.RawMessage {
 	return cdc.MustMarshalJSON(types.DefaultGenesis())
 }
 
-func (AppModuleBasic) ValidateGenesis(_ codec.JSONMarshaler, _ json.RawMessage) error {
+func (AppModuleBasic) ValidateGenesis(cdc codec.JSONMarshaler, config client.TxEncodingConfig, bz json.RawMessage) error {
 	return nil
 }
 
@@ -52,18 +52,18 @@ func (AppModuleBasic) RegisterRESTRoutes(ctx client.Context, rtr *mux.Router) {
 	// noop
 }
 
-func (AppModuleBasic) GetTxCmd(clientCtx client.Context) *cobra.Command {
+func (AppModuleBasic) GetTxCmd() *cobra.Command {
 	// noop
 	return nil
 }
 
-func (AppModuleBasic) GetQueryCmd(clientCtx client.Context) *cobra.Command {
+func (AppModuleBasic) GetQueryCmd() *cobra.Command {
 	// noop
 	return nil
 }
 
-// RegisterInterfaceTypes registers module concrete types into protobuf Any.
-func (AppModuleBasic) RegisterInterfaceTypes(registry cdctypes.InterfaceRegistry) {
+// RegisterInterfaces registers module concrete types into protobuf Any.
+func (AppModuleBasic) RegisterInterfaces(registry codectypes.InterfaceRegistry) {
 	// noop
 }
 
@@ -79,7 +79,7 @@ func NewAppModule(k keeper.Keeper) AppModule {
 }
 
 func (AppModule) RegisterInvariants(ir sdk.InvariantRegistry) {
-	// noop
+	// TODO
 }
 
 func (AppModule) Route() sdk.Route {
@@ -94,10 +94,13 @@ func (AppModule) QuerierRoute() string {
 	return types.QuerierRoute
 }
 
-func (AppModule) NewQuerierHandler() sdk.Querier {
+// LegacyQuerierHandler implements the AppModule interface
+func (am AppModule) LegacyQuerierHandler(codec.JSONMarshaler) sdk.Querier {
 	return nil
 }
 
+// RegisterQueryService registers a GRPC query service to respond to the
+// module-specific GRPC queries.
 func (am AppModule) RegisterQueryService(grpc.Server) {}
 
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONMarshaler, data json.RawMessage) []abci.ValidatorUpdate {

@@ -6,10 +6,10 @@ import (
 	"math"
 
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
+	"github.com/cosmos/cosmos-sdk/codec/unknownproto"
 	"github.com/cosmos/cosmos-sdk/store/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	channel "github.com/cosmos/cosmos-sdk/x/ibc/04-channel"
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
 	"github.com/tendermint/tendermint/crypto/tmhash"
@@ -82,7 +82,7 @@ func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, sourcePort, sourceChannel
 	// get the next sequence
 	sequence, found := k.channelKeeper.GetNextSequenceSend(ctx, sourcePort, sourceChannel)
 	if !found {
-		return channel.ErrSequenceSendNotFound
+		return channeltypes.ErrSequenceSendNotFound
 	}
 
 	packetData := types.IBCAccountPacketData{
@@ -160,7 +160,7 @@ func (k Keeper) createOutgoingPacket(
 	// get the next sequence
 	sequence, found := k.channelKeeper.GetNextSequenceSend(ctx, sourcePort, sourceChannel)
 	if !found {
-		return []byte{}, channel.ErrSequenceSendNotFound
+		return []byte{}, channeltypes.ErrSequenceSendNotFound
 	}
 
 	packetData := types.IBCAccountPacketData{
@@ -169,7 +169,7 @@ func (k Keeper) createOutgoingPacket(
 	}
 
 	// TODO: Add timeout height and timestamp
-	packet := channel.NewPacket(
+	packet := channeltypes.NewPacket(
 		packetData.GetBytes(),
 		sequence,
 		sourcePort,
@@ -184,10 +184,37 @@ func (k Keeper) createOutgoingPacket(
 }
 
 func (k Keeper) DeserializeTx(_ sdk.Context, txBytes []byte) ([]sdk.Msg, error) {
-	var msgs []sdk.Msg
+	var txRaw types.IBCTxRaw
 
-	err := k.txCdc.UnmarshalBinaryBare(txBytes, &msgs)
-	return msgs, err
+	err := unknownproto.RejectUnknownFieldsStrict(txBytes, &txRaw)
+	if err != nil {
+		return nil, err
+	}
+
+	err = k.cdc.UnmarshalBinaryBare(txBytes, &txRaw)
+	if err != nil {
+		return nil, err
+	}
+
+	var txBody types.IBCTxBody
+	err = unknownproto.RejectUnknownFieldsStrict(txRaw.BodyBytes, &txBody)
+	if err != nil {
+		return nil, err
+	}
+
+	err = k.cdc.UnmarshalBinaryBare(txRaw.BodyBytes, &txBody)
+	if err != nil {
+		return nil, err
+	}
+
+	anys := txBody.Messages
+	res := make([]sdk.Msg, len(anys))
+	for i, any := range anys {
+		msg := any.GetCachedValue().(sdk.Msg)
+		res[i] = msg
+	}
+
+	return res, nil
 }
 
 func (k Keeper) runTx(ctx sdk.Context, destPort, destChannel string, msgs []sdk.Msg) error {

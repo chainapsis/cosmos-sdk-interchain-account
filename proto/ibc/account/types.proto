@@ -1,7 +1,17 @@
 syntax = "proto3";
 package ibc.account;
 
+import "google/protobuf/any.proto";
+
 option go_package = "github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types";
+
+message IBCTxRaw {
+    bytes body_bytes = 1;
+}
+
+message IBCTxBody {
+    repeated google.protobuf.Any messages = 1;
+}
 
 enum Type {
     REGISTER = 0;
