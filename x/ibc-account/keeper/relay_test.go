@@ -1,6 +1,6 @@
 package keeper_test
 
-import (
+/*import (
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/keeper"
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -187,4 +187,4 @@ func (suite *KeeperTestSuite) initChannelAtoB() {
 
 	initialSeq := uint64(1)
 	suite.chainA.App.IBCKeeper.ChannelKeeper.SetNextSequenceSend(suite.chainA.GetContext(), testPort1, testChannel1, initialSeq)
-}
+}*/
