@@ -1,13 +1,12 @@
 package keeper_test
 
-/*import (
+import (
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/suite"
 
 	"github.com/chainapsis/cosmos-sdk-interchain-account/simapp"
-	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	connectiontypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
@@ -15,7 +14,6 @@ package keeper_test
 	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	abci "github.com/tendermint/tendermint/abci/types"
-	lite "github.com/tendermint/tendermint/lite2"
 	tmtypes "github.com/tendermint/tendermint/types"
 )
 
@@ -40,8 +38,6 @@ const (
 type KeeperTestSuite struct {
 	suite.Suite
 
-	cdc *codec.Codec
-
 	chainA *TestChain
 	chainB *TestChain
 }
@@ -49,8 +45,6 @@ type KeeperTestSuite struct {
 func (suite *KeeperTestSuite) SetupTest() {
 	suite.chainA = NewTestChain(testClientIDA)
 	suite.chainB = NewTestChain(testClientIDB)
-
-	suite.cdc = suite.chainA.App.Codec()
 }
 
 func TestKeeperTestSuite(t *testing.T) {
@@ -67,7 +61,6 @@ type TestChain struct {
 
 func NewTestChain(clientID string) *TestChain {
 	privVar := tmtypes.NewMockPV()
-
 	pubKey, err := privVar.GetPubKey()
 	if err != nil {
 		panic(err)
@@ -78,7 +71,7 @@ func NewTestChain(clientID string) *TestChain {
 	signers := []tmtypes.PrivValidator{privVar}
 	now := time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)
 
-	header := ibctmtypes.CreateTestHeader(clientID, 1, now, valSet, signers)
+	header := ibctmtypes.CreateTestHeader(clientID, 1, 1, now, valSet, valSet, signers)
 
 	return &TestChain{
 		ClientID: clientID,
@@ -103,7 +96,7 @@ func (chain *TestChain) createConnection(
 		State:        state,
 		ClientID:     clientID,
 		Counterparty: counterparty,
-		Versions:     connectiontypes.GetCompatibleVersions(),
+		Versions:     connectiontypes.GetCompatibleEncodedVersions(),
 	}
 	ctx := chain.GetContext()
 	chain.App.IBCKeeper.ConnectionKeeper.SetConnection(ctx, connID, connection)
@@ -138,11 +131,8 @@ func (chain *TestChain) CreateClient(client *TestChain) error {
 	ctxTarget := chain.GetContext()
 
 	// create client
-	clientState, err := ibctmtypes.Initialize(client.ClientID, lite.DefaultTrustLevel, trustingPeriod, ubdPeriod, maxClockDrift, client.Header, commitmenttypes.GetSDKSpecs())
-	if err != nil {
-		return err
-	}
-	_, err = chain.App.IBCKeeper.ClientKeeper.CreateClient(ctxTarget, clientState, client.Header.ConsensusState())
+	clientState := ibctmtypes.NewClientState(client.ClientID, ibctmtypes.DefaultTrustLevel, trustingPeriod, ubdPeriod, maxClockDrift, uint64(client.Header.Height), commitmenttypes.GetSDKSpecs())
+	_, err := chain.App.IBCKeeper.ClientKeeper.CreateClient(ctxTarget, client.ClientID, clientState, client.Header.ConsensusState())
 	if err != nil {
 		return err
 	}
@@ -174,6 +164,13 @@ func (chain *TestChain) createChannel(
 }
 
 func nextHeader(chain *TestChain) ibctmtypes.Header {
-	return ibctmtypes.CreateTestHeader(chain.Header.SignedHeader.Header.ChainID, chain.Header.SignedHeader.Header.Height+1,
-		chain.Header.Time.Add(time.Minute), chain.Vals, chain.Signers)
-}*/
+	return ibctmtypes.CreateTestHeader(
+		chain.Header.SignedHeader.Header.ChainID,
+		chain.Header.SignedHeader.Header.Height+1,
+		chain.Header.SignedHeader.Header.Height,
+		chain.Header.Time.Add(time.Minute),
+		chain.Vals,
+		chain.Vals,
+		chain.Signers,
+	)
+}

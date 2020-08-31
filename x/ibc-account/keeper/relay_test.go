@@ -1,11 +1,11 @@
 package keeper_test
 
-/*import (
+import (
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/keeper"
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	connection "github.com/cosmos/cosmos-sdk/x/ibc/03-connection"
+	connectiontypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
 	"math"
@@ -14,7 +14,7 @@ package keeper_test
 func (suite *KeeperTestSuite) TestCreateIBCAccount() {
 	suite.initChannelAtoB()
 
-	err := suite.chainA.App.IBCAccountKeeper.TryRegisterIBCAccount(suite.chainA.GetContext(), testClientIDB, testPort1, testChannel1, testSalt)
+	err := suite.chainA.App.IBCAccountKeeper.TryRegisterIBCAccount(suite.chainA.GetContext(), testPort1, testChannel1, testSalt)
 	suite.Require().Nil(err, "could not request creating ia account")
 
 	packetCommitment := suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 1)
@@ -42,7 +42,7 @@ func (suite *KeeperTestSuite) TestCreateIBCAccount() {
 func (suite *KeeperTestSuite) TestRunTx() {
 	suite.initChannelAtoB()
 
-	err := suite.chainA.App.IBCAccountKeeper.TryRegisterIBCAccount(suite.chainA.GetContext(), testClientIDB, testPort1, testChannel1, testSalt)
+	err := suite.chainA.App.IBCAccountKeeper.TryRegisterIBCAccount(suite.chainA.GetContext(), testPort1, testChannel1, testSalt)
 	suite.Require().Nil(err, "could not request creating ia account")
 
 	packetCommitment := suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 1)
@@ -98,7 +98,7 @@ func (suite *KeeperTestSuite) TestRunTx() {
 	packetCommitment = suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 2)
 	suite.Require().Greater(len(packetCommitment), 0, "packet commitment is empty")
 
-	packetTxBytes, err := keeper.SerializeCosmosTx(suite.chainB.App.Codec())(sendMsg)
+	packetTxBytes, err := keeper.SerializeCosmosTx(suite.chainB.App.AppCodec(), suite.chainB.App.InterfaceRegistry())(sendMsg)
 	suite.Require().Nil(err)
 	packet = channeltypes.NewPacket(
 		types.IBCAccountPacketData{Type: types.Type_RUNTX, Data: packetTxBytes}.GetBytes(),
@@ -146,7 +146,7 @@ func (suite *KeeperTestSuite) TestRunTx() {
 	packetCommitment = suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 3)
 	suite.Require().Greater(len(packetCommitment), 0, "packet commitment is empty")
 
-	packetTxBytes, err = keeper.SerializeCosmosTx(suite.chainB.App.Codec())(sendMsg)
+	packetTxBytes, err = keeper.SerializeCosmosTx(suite.chainB.App.AppCodec(), suite.chainB.App.InterfaceRegistry())(sendMsg)
 	suite.Require().Nil(err)
 	packet = channeltypes.NewPacket(
 		types.IBCAccountPacketData{Type: types.Type_RUNTX, Data: packetTxBytes}.GetBytes(),
@@ -170,7 +170,7 @@ func (suite *KeeperTestSuite) initChannelAtoB() {
 
 	// Add counterparty info.
 	suite.chainA.App.IBCAccountKeeper.AddCounterpartyInfo(testClientIDB, keeper.CounterpartyInfo{
-		SerializeTx: keeper.SerializeCosmosTx(suite.chainB.App.Codec()),
+		SerializeTx: keeper.SerializeCosmosTx(suite.chainB.App.AppCodec(), suite.chainB.App.InterfaceRegistry()),
 	})
 
 	// create channel capability from ibc scoped keeper and claim with ia scoped keeper
@@ -182,9 +182,9 @@ func (suite *KeeperTestSuite) initChannelAtoB() {
 	// create client, and open conn/channel
 	err = suite.chainA.CreateClient(suite.chainB)
 	suite.Require().Nil(err, "could not create client")
-	suite.chainA.createConnection(testConnection, testConnection, testClientIDB, testClientIDA, connection.OPEN)
+	suite.chainA.createConnection(testConnection, testConnection, testClientIDB, testClientIDA, connectiontypes.OPEN)
 	suite.chainA.createChannel(testPort1, testChannel1, testPort2, testChannel2, channeltypes.OPEN, channeltypes.ORDERED, testConnection)
 
 	initialSeq := uint64(1)
 	suite.chainA.App.IBCKeeper.ChannelKeeper.SetNextSequenceSend(suite.chainA.GetContext(), testPort1, testChannel1, initialSeq)
-}*/
+}

@@ -15,6 +15,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client/rpc"
 	"github.com/cosmos/cosmos-sdk/codec"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/server/api"
 	"github.com/cosmos/cosmos-sdk/simapp"
 	simappparams "github.com/cosmos/cosmos-sdk/simapp/params"
@@ -135,8 +136,9 @@ var _ simapp.App = (*SimApp)(nil)
 // capabilities aren't needed for testing.
 type SimApp struct {
 	*baseapp.BaseApp
-	cdc      *codec.LegacyAmino
-	appCodec codec.Marshaler
+	cdc               *codec.LegacyAmino
+	appCodec          codec.Marshaler
+	interfaceRegistry codectypes.InterfaceRegistry
 
 	invCheckPeriod uint
 
@@ -204,14 +206,15 @@ func NewSimApp(
 	memKeys := sdk.NewMemoryStoreKeys(capabilitytypes.MemStoreKey)
 
 	app := &SimApp{
-		BaseApp:        bApp,
-		cdc:            cdc,
-		appCodec:       appCodec,
-		invCheckPeriod: invCheckPeriod,
-		keys:           keys,
-		tkeys:          tkeys,
-		memKeys:        memKeys,
-		subspaces:      make(map[string]paramstypes.Subspace),
+		BaseApp:           bApp,
+		cdc:               cdc,
+		appCodec:          appCodec,
+		interfaceRegistry: interfaceRegistry,
+		invCheckPeriod:    invCheckPeriod,
+		keys:              keys,
+		tkeys:             tkeys,
+		memKeys:           memKeys,
+		subspaces:         make(map[string]paramstypes.Subspace),
 	}
 
 	// init params keeper and subspaces
@@ -428,7 +431,7 @@ func NewSimApp(
 // simapp. It is useful for tests and clients who do not want to construct the
 // full simapp
 func MakeCodecs() (codec.Marshaler, *codec.LegacyAmino) {
-	config := simapp.MakeEncodingConfig()
+	config := MakeEncodingConfig()
 	return config.Marshaler, config.Amino
 }
 
@@ -492,6 +495,10 @@ func (app *SimApp) LegacyAmino() *codec.LegacyAmino {
 // for modules to register their own custom testing types.
 func (app *SimApp) AppCodec() codec.Marshaler {
 	return app.appCodec
+}
+
+func (app *SimApp) InterfaceRegistry() codectypes.InterfaceRegistry {
+	return app.interfaceRegistry
 }
 
 // GetKey returns the KVStoreKey for the provided store key.
