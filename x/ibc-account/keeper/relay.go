@@ -210,7 +210,11 @@ func (k Keeper) DeserializeTx(_ sdk.Context, txBytes []byte) ([]sdk.Msg, error) 
 	anys := txBody.Messages
 	res := make([]sdk.Msg, len(anys))
 	for i, any := range anys {
-		msg := any.GetCachedValue().(sdk.Msg)
+		var msg sdk.Msg
+		err := k.cdc.UnpackAny(any, &msg)
+		if err != nil {
+			return nil, err
+		}
 		res[i] = msg
 	}
 
