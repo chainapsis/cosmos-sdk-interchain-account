@@ -5,16 +5,19 @@ import (
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connectiontypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
-	"math"
 )
 
 func (suite *KeeperTestSuite) TestCreateIBCAccount() {
 	suite.initChannelAtoB()
 
-	err := suite.chainA.App.IBCAccountKeeper.TryRegisterIBCAccount(suite.chainA.GetContext(), testPort1, testChannel1, testSalt)
+	err := suite.chainA.App.IBCAccountKeeper.TryRegisterIBCAccount(suite.chainA.GetContext(), testPort1, testChannel1, testSalt, clienttypes.Height{
+		EpochNumber: 0,
+		EpochHeight: 100,
+	})
 	suite.Require().Nil(err, "could not request creating ia account")
 
 	packetCommitment := suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 1)
@@ -27,7 +30,10 @@ func (suite *KeeperTestSuite) TestCreateIBCAccount() {
 		testChannel1,
 		testPort2,
 		testChannel2,
-		math.MaxUint64,
+		clienttypes.Height{
+			EpochNumber: 0,
+			EpochHeight: 100,
+		},
 		0,
 	)
 	suite.Require().Equal(packetCommitment, channeltypes.CommitPacket(packet))
@@ -42,7 +48,10 @@ func (suite *KeeperTestSuite) TestCreateIBCAccount() {
 func (suite *KeeperTestSuite) TestRunTx() {
 	suite.initChannelAtoB()
 
-	err := suite.chainA.App.IBCAccountKeeper.TryRegisterIBCAccount(suite.chainA.GetContext(), testPort1, testChannel1, testSalt)
+	err := suite.chainA.App.IBCAccountKeeper.TryRegisterIBCAccount(suite.chainA.GetContext(), testPort1, testChannel1, testSalt, clienttypes.Height{
+		EpochNumber: 0,
+		EpochHeight: 100,
+	})
 	suite.Require().Nil(err, "could not request creating ia account")
 
 	packetCommitment := suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 1)
@@ -55,7 +64,10 @@ func (suite *KeeperTestSuite) TestRunTx() {
 		testChannel1,
 		testPort2,
 		testChannel2,
-		math.MaxUint64,
+		clienttypes.Height{
+			EpochNumber: 0,
+			EpochHeight: 100,
+		},
 		0,
 	)
 	suite.Require().Equal(packetCommitment, channeltypes.CommitPacket(packet))
@@ -79,7 +91,7 @@ func (suite *KeeperTestSuite) TestRunTx() {
 	suite.Require().Equal(sdk.Coins{}, bal)
 
 	// Mint tokens.
-	_, err = suite.chainB.App.BankKeeper.AddCoins(suite.chainB.GetContext(), acc.GetAddress(), mint)
+	err = suite.chainB.App.BankKeeper.AddCoins(suite.chainB.GetContext(), acc.GetAddress(), mint)
 	suite.Require().Nil(err)
 
 	bal = suite.chainB.App.BankKeeper.GetAllBalances(suite.chainB.GetContext(), acc.GetAddress())
@@ -92,7 +104,10 @@ func (suite *KeeperTestSuite) TestRunTx() {
 			Amount: sdk.NewInt(500),
 		},
 	})
-	_, err = suite.chainA.App.IBCAccountKeeper.TryRunTx(suite.chainA.GetContext(), testPort1, testChannel1, testClientIDB, sendMsg)
+	_, err = suite.chainA.App.IBCAccountKeeper.TryRunTx(suite.chainA.GetContext(), testPort1, testChannel1, testClientIDB, sendMsg, clienttypes.Height{
+		EpochNumber: 0,
+		EpochHeight: 100,
+	})
 	suite.Require().Nil(err)
 
 	packetCommitment = suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 2)
@@ -107,7 +122,10 @@ func (suite *KeeperTestSuite) TestRunTx() {
 		testChannel1,
 		testPort2,
 		testChannel2,
-		math.MaxUint64,
+		clienttypes.Height{
+			EpochNumber: 0,
+			EpochHeight: 100,
+		},
 		0,
 	)
 	suite.Require().Equal(packetCommitment, channeltypes.CommitPacket(packet))
@@ -140,7 +158,10 @@ func (suite *KeeperTestSuite) TestRunTx() {
 		},
 	})
 
-	_, err = suite.chainA.App.IBCAccountKeeper.TryRunTx(suite.chainA.GetContext(), testPort1, testChannel1, testClientIDB, sendMsg)
+	_, err = suite.chainA.App.IBCAccountKeeper.TryRunTx(suite.chainA.GetContext(), testPort1, testChannel1, testClientIDB, sendMsg, clienttypes.Height{
+		EpochNumber: 0,
+		EpochHeight: 100,
+	})
 	suite.Require().Nil(err)
 
 	packetCommitment = suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 3)
@@ -155,7 +176,10 @@ func (suite *KeeperTestSuite) TestRunTx() {
 		testChannel1,
 		testPort2,
 		testChannel2,
-		math.MaxUint64,
+		clienttypes.Height{
+			EpochNumber: 0,
+			EpochHeight: 100,
+		},
 		0,
 	)
 	suite.Require().Equal(packetCommitment, channeltypes.CommitPacket(packet))

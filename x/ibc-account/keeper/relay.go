@@ -3,13 +3,13 @@ package keeper
 import (
 	"bytes"
 	"encoding/binary"
-	"math"
 
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
 	"github.com/cosmos/cosmos-sdk/codec/unknownproto"
 	"github.com/cosmos/cosmos-sdk/store/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
 	"github.com/tendermint/tendermint/crypto/tmhash"
@@ -65,7 +65,7 @@ func (k Keeper) GenerateAddress(identifier string, salt string) []byte {
 // TryRegisterIBCAccount try to register IBC account to source channel.
 // If no source channel exists or doesn't have capability, it will return error.
 // Salt is used to generate deterministic address.
-func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, sourcePort, sourceChannel, salt string) error {
+func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, sourcePort, sourceChannel, salt string, timeoutHeight clienttypes.Height) error {
 	sourceChannelEnd, found := k.channelKeeper.GetChannel(ctx, sourcePort, sourceChannel)
 	if !found {
 		return sdkerrors.Wrap(channeltypes.ErrChannelNotFound, sourceChannel)
@@ -98,7 +98,7 @@ func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, sourcePort, sourceChannel
 		sourceChannel,
 		destinationPort,
 		destinationChannel,
-		math.MaxUint64,
+		timeoutHeight,
 		0,
 	)
 
@@ -106,7 +106,7 @@ func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, sourcePort, sourceChannel
 }
 
 // TryRunTx try to send messages to source channel.
-func (k Keeper) TryRunTx(ctx sdk.Context, sourcePort, sourceChannel, chainID string, data interface{}) ([]byte, error) {
+func (k Keeper) TryRunTx(ctx sdk.Context, sourcePort, sourceChannel, chainID string, data interface{}, timeoutHeight clienttypes.Height) ([]byte, error) {
 	sourceChannelEnd, found := k.channelKeeper.GetChannel(ctx, sourcePort, sourceChannel)
 	if !found {
 		return []byte{}, sdkerrors.Wrap(channeltypes.ErrChannelNotFound, sourceChannel)
@@ -115,7 +115,7 @@ func (k Keeper) TryRunTx(ctx sdk.Context, sourcePort, sourceChannel, chainID str
 	destinationPort := sourceChannelEnd.GetCounterparty().GetPortID()
 	destinationChannel := sourceChannelEnd.GetCounterparty().GetChannelID()
 
-	return k.createOutgoingPacket(ctx, sourcePort, sourceChannel, destinationPort, destinationChannel, chainID, data)
+	return k.createOutgoingPacket(ctx, sourcePort, sourceChannel, destinationPort, destinationChannel, chainID, data, timeoutHeight)
 }
 
 func (k Keeper) createOutgoingPacket(
@@ -126,6 +126,7 @@ func (k Keeper) createOutgoingPacket(
 	destinationChannel,
 	typ string,
 	data interface{},
+	timeoutHeight clienttypes.Height,
 ) ([]byte, error) {
 	if data == nil {
 		return []byte{}, types.ErrInvalidOutgoingData
@@ -176,7 +177,7 @@ func (k Keeper) createOutgoingPacket(
 		sourceChannel,
 		destinationPort,
 		destinationChannel,
-		math.MaxUint64,
+		timeoutHeight,
 		0,
 	)
 

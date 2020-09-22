@@ -1,6 +1,8 @@
 package keeper_test
 
 import (
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
+	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	"testing"
 	"time"
 
@@ -71,12 +73,18 @@ func NewTestChain(clientID string) *TestChain {
 	signers := []tmtypes.PrivValidator{privVar}
 	now := time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)
 
-	header := ibctmtypes.CreateTestHeader(clientID, 1, 1, now, valSet, valSet, signers)
+	header := ibctmtypes.CreateTestHeader(clientID, clienttypes.Height{
+		EpochNumber: 0,
+		EpochHeight: 1,
+	}, clienttypes.Height{
+		EpochNumber: 0,
+		EpochHeight: 1,
+	}, now, valSet, valSet, signers)
 
 	return &TestChain{
 		ClientID: clientID,
 		App:      simapp.Setup(false),
-		Header:   header,
+		Header:   *header,
 		Vals:     valSet,
 		Signers:  signers,
 	}
@@ -84,7 +92,7 @@ func NewTestChain(clientID string) *TestChain {
 
 // Creates simple context for testing purposes
 func (chain *TestChain) GetContext() sdk.Context {
-	return chain.App.BaseApp.NewContext(false, abci.Header{ChainID: chain.Header.SignedHeader.Header.ChainID, Height: chain.Header.SignedHeader.Header.Height})
+	return chain.App.BaseApp.NewContext(false, tmproto.Header{ChainID: chain.Header.SignedHeader.Header.ChainID, Height: chain.Header.SignedHeader.Header.Height})
 }
 
 func (chain *TestChain) createConnection(
@@ -94,7 +102,7 @@ func (chain *TestChain) createConnection(
 	counterparty := connectiontypes.NewCounterparty(counterpartyClientID, counterpartyConnID, commitmenttypes.NewMerklePrefix(chain.App.IBCKeeper.ConnectionKeeper.GetCommitmentPrefix().Bytes()))
 	connection := connectiontypes.ConnectionEnd{
 		State:        state,
-		ClientID:     clientID,
+		ClientId:     clientID,
 		Counterparty: counterparty,
 		Versions:     connectiontypes.GetCompatibleEncodedVersions(),
 	}
@@ -109,7 +117,7 @@ func (chain *TestChain) CreateClient(client *TestChain) error {
 	// Commit and create a new block on appTarget to get a fresh CommitID
 	client.App.Commit()
 	commitID := client.App.LastCommitID()
-	client.App.BeginBlock(abci.RequestBeginBlock{Header: abci.Header{Height: client.Header.SignedHeader.Header.Height, Time: client.Header.Time}})
+	client.App.BeginBlock(abci.RequestBeginBlock{Header: tmproto.Header{Height: client.Header.SignedHeader.Header.Height, Time: client.Header.GetTime()}})
 
 	// Set HistoricalInfo on client chain after Commit
 	ctxClient := client.GetContext()
@@ -120,7 +128,7 @@ func (chain *TestChain) CreateClient(client *TestChain) error {
 	validator.Tokens = sdk.NewInt(1000000) // get one voting power
 	validators := []stakingtypes.Validator{validator}
 	histInfo := stakingtypes.HistoricalInfo{
-		Header: abci.Header{
+		Header: tmproto.Header{
 			AppHash: commitID.Hash,
 		},
 		Valset: validators,
@@ -131,7 +139,10 @@ func (chain *TestChain) CreateClient(client *TestChain) error {
 	ctxTarget := chain.GetContext()
 
 	// create client
-	clientState := ibctmtypes.NewClientState(client.ClientID, ibctmtypes.DefaultTrustLevel, trustingPeriod, ubdPeriod, maxClockDrift, uint64(client.Header.Height), commitmenttypes.GetSDKSpecs())
+	clientState := ibctmtypes.NewClientState(client.ClientID, ibctmtypes.DefaultTrustLevel, trustingPeriod, ubdPeriod, maxClockDrift, clienttypes.Height{
+		EpochNumber: 0,
+		EpochHeight: client.Header.GetHeight().GetEpochHeight(),
+	}, commitmenttypes.GetSDKSpecs(), false, false)
 	_, err := chain.App.IBCKeeper.ClientKeeper.CreateClient(ctxTarget, client.ClientID, clientState, client.Header.ConsensusState())
 	if err != nil {
 		return err
@@ -164,11 +175,17 @@ func (chain *TestChain) createChannel(
 }
 
 func nextHeader(chain *TestChain) ibctmtypes.Header {
-	return ibctmtypes.CreateTestHeader(
+	return *ibctmtypes.CreateTestHeader(
 		chain.Header.SignedHeader.Header.ChainID,
-		chain.Header.SignedHeader.Header.Height+1,
-		chain.Header.SignedHeader.Header.Height,
-		chain.Header.Time.Add(time.Minute),
+		clienttypes.Height{
+			EpochNumber: 0,
+			EpochHeight: uint64(chain.Header.SignedHeader.Header.Height+1),
+		},
+		clienttypes.Height{
+			EpochNumber: 0,
+			EpochHeight: uint64(chain.Header.SignedHeader.Header.Height),
+		},
+		chain.Header.GetTime().Add(time.Minute),
 		chain.Vals,
 		chain.Vals,
 		chain.Signers,

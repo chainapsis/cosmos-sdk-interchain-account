@@ -9,8 +9,8 @@ import (
 )
 
 func InitGenesis(ctx sdk.Context, keeper keeper.Keeper, state types.GenesisState) {
-	if !keeper.IsBound(ctx, state.PortID) {
-		err := keeper.BindPort(ctx, state.PortID)
+	if !keeper.IsBound(ctx, state.PortId) {
+		err := keeper.BindPort(ctx, state.PortId)
 		if err != nil {
 			panic(fmt.Sprintf("could not claim port capability: %v", err))
 		}
@@ -18,10 +18,10 @@ func InitGenesis(ctx sdk.Context, keeper keeper.Keeper, state types.GenesisState
 }
 
 // ExportGenesis exports transfer module's portID into its geneis state
-func ExportGenesis(ctx sdk.Context, keeper keeper.Keeper) types.GenesisState {
+func ExportGenesis(ctx sdk.Context, keeper keeper.Keeper) *types.GenesisState {
 	portID := keeper.GetPort(ctx)
 
-	return types.GenesisState{
-		PortID: portID,
+	return &types.GenesisState{
+		PortId: portID,
 	}
 }

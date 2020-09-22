@@ -2,6 +2,7 @@ package ibc_account
 
 import (
 	"encoding/json"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 
 	"github.com/gogo/protobuf/grpc"
 
@@ -36,6 +37,9 @@ func (AppModuleBasic) Name() string {
 	return types.ModuleName
 }
 
+// RegisterLegacyAminoCodec implements AppModuleBasic interface
+func (AppModuleBasic) RegisterLegacyAminoCodec(*codec.LegacyAmino) {}
+
 func (AppModuleBasic) RegisterCodec(cdc *codec.LegacyAmino) {
 	// noop
 }
@@ -67,6 +71,11 @@ func (AppModuleBasic) RegisterInterfaces(registry codectypes.InterfaceRegistry) 
 	// noop
 }
 
+// RegisterGRPCRoutes registers the gRPC Gateway routes for the ibc-account module.
+func (AppModuleBasic) RegisterGRPCRoutes(clientCtx client.Context, mux *runtime.ServeMux) {
+	// TODO
+}
+
 type AppModule struct {
 	AppModuleBasic
 	keeper keeper.Keeper
@@ -95,7 +104,7 @@ func (AppModule) QuerierRoute() string {
 }
 
 // LegacyQuerierHandler implements the AppModule interface
-func (am AppModule) LegacyQuerierHandler(codec.JSONMarshaler) sdk.Querier {
+func (am AppModule) LegacyQuerierHandler(*codec.LegacyAmino) sdk.Querier {
 	return nil
 }
 
