@@ -40,7 +40,6 @@ func (k Keeper) OnChanOpenInit(
 		return sdkerrors.Wrap(channeltypes.ErrChannelCapabilityNotFound, err.Error())
 	}
 
-	// TODO: escrow
 	return nil
 }
 
@@ -78,6 +77,5 @@ func (k Keeper) OnChanOpenTry(
 		return sdkerrors.Wrap(channeltypes.ErrChannelCapabilityNotFound, err.Error())
 	}
 
-	// TODO: escrow
 	return nil
 }

@@ -1,50 +1,53 @@
 package keeper_test
 
 import (
-	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/keeper"
+	ibcaccountmocktypes "github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/testing/mock/types"
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
-	connectiontypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
+	"github.com/cosmos/cosmos-sdk/x/ibc/exported"
 )
 
-func (suite *KeeperTestSuite) TestCreateIBCAccount() {
-	suite.initChannelAtoB()
+func (suite *KeeperTestSuite) TestTryRegisterIBCAccount() {
+	// init connection and channel between chain A and chain B
+	_, _, connA, connB := suite.coordinator.SetupClientConnections(suite.chainA, suite.chainB, exported.Tendermint)
+	channelA, channelB := suite.coordinator.CreateIBCAccountChannels(suite.chainA, suite.chainB, connA, connB, channeltypes.ORDERED)
 
-	err := suite.chainA.App.IBCAccountKeeper.TryRegisterIBCAccount(suite.chainA.GetContext(), testPort1, testChannel1, testSalt, clienttypes.Height{
-		EpochNumber: 0,
-		EpochHeight: 100,
-	})
-	suite.Require().Nil(err, "could not request creating ia account")
-
-	packetCommitment := suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 1)
-	suite.Require().Greater(len(packetCommitment), 0, "packet commitment is empty")
-
-	packet := channeltypes.NewPacket(
-		types.IBCAccountPacketData{Type: types.Type_REGISTER, Data: []byte(testSalt)}.GetBytes(),
-		1,
-		testPort1,
-		testChannel1,
-		testPort2,
-		testChannel2,
-		clienttypes.Height{
+	// assume that chain A try to register IBC Account to chain B
+	msg := &ibcaccountmocktypes.MsgTryRegisterIBCAccount{
+		SourcePort:    channelA.PortID,
+		SourceChannel: channelA.ID,
+		Salt:          []byte("test"),
+		TimeoutHeight: clienttypes.Height{
 			EpochNumber: 0,
 			EpochHeight: 100,
 		},
-		0,
-	)
-	suite.Require().Equal(packetCommitment, channeltypes.CommitPacket(packet))
+		TimeoutTimestamp: 0,
+		Sender:           suite.chainA.SenderAccount.GetAddress(),
+	}
+	err := suite.coordinator.SendMsg(suite.chainA, suite.chainB, channelB.ClientID, msg)
+	suite.Require().NoError(err) // message committed
 
-	err = suite.chainB.App.IBCAccountKeeper.OnRecvPacket(suite.chainB.GetContext(), packet)
-	suite.Require().Nil(err)
+	packetData := types.IBCAccountPacketData{
+		Type: types.Type_REGISTER,
+		Data: []byte("test"),
+	}
+	packet := channeltypes.NewPacket(packetData.GetBytes(), 1, channelA.PortID, channelA.ID, channelB.PortID, channelB.ID, clienttypes.NewHeight(0, 100), 0)
 
-	acc := suite.chainB.App.AccountKeeper.GetAccount(suite.chainB.GetContext(), suite.chainB.App.IBCAccountKeeper.GenerateAddress(types.GetIdentifier(testPort2, testChannel2), testSalt))
-	suite.Require().NotNil(acc, "ibc account is not registered on counterparty chain")
+	// get proof of packet commitment from chainA
+	packetKey := host.KeyPacketCommitment(packet.GetSourcePort(), packet.GetSourceChannel(), packet.GetSequence())
+	proof, proofHeight := suite.chainA.QueryProof(packetKey)
+
+	recvMsg := channeltypes.NewMsgRecvPacket(packet, proof, proofHeight, suite.chainB.SenderAccount.GetAddress())
+	err = suite.coordinator.SendMsg(suite.chainB, suite.chainA, channelA.ClientID, recvMsg)
+	suite.Require().NoError(err) // message committed
+
+	acc := suite.chainB.App.AccountKeeper.GetAccount(suite.chainB.GetContext(), suite.chainB.App.IBCAccountKeeper.GenerateAddress(types.GetIdentifier(channelB.PortID, channelB.ID), []byte("test")))
+	suite.Require().NotNil(acc)
 }
 
+/*
 func (suite *KeeperTestSuite) TestRunTx() {
 	suite.initChannelAtoB()
 
@@ -188,27 +191,4 @@ func (suite *KeeperTestSuite) TestRunTx() {
 	err = suite.chainB.App.IBCAccountKeeper.OnRecvPacket(suite.chainB.GetContext(), packet)
 	suite.Require().NotNil(err)
 }
-
-func (suite *KeeperTestSuite) initChannelAtoB() {
-	capName := host.ChannelCapabilityPath(testPort1, testChannel1)
-
-	// Add counterparty info.
-	suite.chainA.App.IBCAccountKeeper.AddCounterpartyInfo(testClientIDB, keeper.CounterpartyInfo{
-		SerializeTx: keeper.SerializeCosmosTx(suite.chainB.App.AppCodec(), suite.chainB.App.InterfaceRegistry()),
-	})
-
-	// create channel capability from ibc scoped keeper and claim with ia scoped keeper
-	cap, err := suite.chainA.App.ScopedIBCKeeper.NewCapability(suite.chainA.GetContext(), capName)
-	suite.Require().Nil(err, "could not create capability")
-	err = suite.chainA.App.ScopedIBCAccountKeeper.ClaimCapability(suite.chainA.GetContext(), cap, capName)
-	suite.Require().Nil(err, "interchainaccount module could not claim capability")
-
-	// create client, and open conn/channel
-	err = suite.chainA.CreateClient(suite.chainB)
-	suite.Require().Nil(err, "could not create client")
-	suite.chainA.createConnection(testConnection, testConnection, testClientIDB, testClientIDA, connectiontypes.OPEN)
-	suite.chainA.createChannel(testPort1, testChannel1, testPort2, testChannel2, channeltypes.OPEN, channeltypes.ORDERED, testConnection)
-
-	initialSeq := uint64(1)
-	suite.chainA.App.IBCKeeper.ChannelKeeper.SetNextSequenceSend(suite.chainA.GetContext(), testPort1, testChannel1, initialSeq)
-}
+*/

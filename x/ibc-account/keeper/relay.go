@@ -20,8 +20,8 @@ import (
 func (k Keeper) registerIBCAccount(
 	ctx sdk.Context,
 	destPort,
-	destChannel,
-	salt string,
+	destChannel string,
+	salt []byte,
 ) error {
 	identifier := types.GetIdentifier(destPort, destChannel)
 	address := k.GenerateAddress(identifier, salt)
@@ -58,14 +58,14 @@ func (k Keeper) createAccount(ctx sdk.Context, address sdk.AccAddress, identifie
 }
 
 // Determine account's address that will be created.
-func (k Keeper) GenerateAddress(identifier string, salt string) []byte {
-	return tmhash.SumTruncated([]byte(identifier + salt))
+func (k Keeper) GenerateAddress(identifier string, salt []byte) []byte {
+	return tmhash.SumTruncated(append([]byte(identifier), salt...))
 }
 
 // TryRegisterIBCAccount try to register IBC account to source channel.
 // If no source channel exists or doesn't have capability, it will return error.
 // Salt is used to generate deterministic address.
-func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, sourcePort, sourceChannel, salt string, timeoutHeight clienttypes.Height) error {
+func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, sourcePort, sourceChannel string, salt []byte, timeoutHeight clienttypes.Height, timeoutTimestamp uint64) error {
 	sourceChannelEnd, found := k.channelKeeper.GetChannel(ctx, sourcePort, sourceChannel)
 	if !found {
 		return sdkerrors.Wrap(channeltypes.ErrChannelNotFound, sourceChannel)
@@ -87,7 +87,7 @@ func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, sourcePort, sourceChannel
 
 	packetData := types.IBCAccountPacketData{
 		Type: types.Type_REGISTER,
-		Data: []byte(salt),
+		Data: salt,
 	}
 
 	// TODO: Add timeout height and timestamp
@@ -99,7 +99,7 @@ func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, sourcePort, sourceChannel
 		destinationPort,
 		destinationChannel,
 		timeoutHeight,
-		0,
+		timeoutTimestamp,
 	)
 
 	return k.channelKeeper.SendPacket(ctx, channelCap, packet)
@@ -318,7 +318,7 @@ func (k Keeper) OnRecvPacket(ctx sdk.Context, packet channeltypes.Packet) error 
 
 	switch data.Type {
 	case types.Type_REGISTER:
-		err := k.registerIBCAccount(ctx, packet.DestinationPort, packet.DestinationChannel, string(data.Data))
+		err := k.registerIBCAccount(ctx, packet.DestinationPort, packet.DestinationChannel, data.Data)
 		if err != nil {
 			return err
 		}
@@ -346,7 +346,7 @@ func (k Keeper) OnAcknowledgementPacket(ctx sdk.Context, packet channeltypes.Pac
 	case types.Type_REGISTER:
 		if ack.Code == 0 {
 			if k.hook != nil {
-				k.hook.OnAccountCreated(ctx, packet.SourcePort, packet.SourceChannel, k.GenerateAddress(types.GetIdentifier(packet.DestinationPort, packet.DestinationChannel), string(data.Data)))
+				k.hook.OnAccountCreated(ctx, packet.SourcePort, packet.SourceChannel, k.GenerateAddress(types.GetIdentifier(packet.DestinationPort, packet.DestinationChannel), data.Data))
 			}
 		}
 		return nil

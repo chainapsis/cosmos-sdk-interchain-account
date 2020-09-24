@@ -2,6 +2,7 @@ package ibc_account
 
 import (
 	"encoding/json"
+
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 
 	"github.com/gogo/protobuf/grpc"
@@ -230,7 +231,7 @@ func (am AppModule) OnRecvPacket(
 		}
 		return &sdk.Result{
 			Events: ctx.EventManager().Events().ToABCIEvents(),
-		}, nil, nil
+		}, acknowledgement.GetBytes(), nil
 	case types.Type_RUNTX:
 		acknowledgement := types.IBCAccountPacketAcknowledgement{
 			ChainID: ctx.ChainID(),

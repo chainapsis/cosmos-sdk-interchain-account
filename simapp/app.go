@@ -12,6 +12,8 @@ import (
 
 	ibcaccount "github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account"
 	ibcaccountkeeper "github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/keeper"
+	ibcaccountmock "github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/testing/mock"
+	ibcaccountmockkeeper "github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/testing/mock/keeper"
 	ibcaccounttypes "github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client/rpc"
@@ -150,21 +152,22 @@ type SimApp struct {
 	subspaces map[string]paramstypes.Subspace
 
 	// keepers
-	AccountKeeper    authkeeper.AccountKeeper
-	BankKeeper       bankkeeper.Keeper
-	CapabilityKeeper *capabilitykeeper.Keeper
-	StakingKeeper    stakingkeeper.Keeper
-	SlashingKeeper   slashingkeeper.Keeper
-	MintKeeper       mintkeeper.Keeper
-	DistrKeeper      distrkeeper.Keeper
-	GovKeeper        govkeeper.Keeper
-	CrisisKeeper     crisiskeeper.Keeper
-	UpgradeKeeper    upgradekeeper.Keeper
-	ParamsKeeper     paramskeeper.Keeper
-	IBCKeeper        *ibckeeper.Keeper // IBC Keeper must be a pointer in the app, so we can SetRouter on it correctly
-	EvidenceKeeper   evidencekeeper.Keeper
-	TransferKeeper   ibctransferkeeper.Keeper
-	IBCAccountKeeper ibcaccountkeeper.Keeper
+	AccountKeeper        authkeeper.AccountKeeper
+	BankKeeper           bankkeeper.Keeper
+	CapabilityKeeper     *capabilitykeeper.Keeper
+	StakingKeeper        stakingkeeper.Keeper
+	SlashingKeeper       slashingkeeper.Keeper
+	MintKeeper           mintkeeper.Keeper
+	DistrKeeper          distrkeeper.Keeper
+	GovKeeper            govkeeper.Keeper
+	CrisisKeeper         crisiskeeper.Keeper
+	UpgradeKeeper        upgradekeeper.Keeper
+	ParamsKeeper         paramskeeper.Keeper
+	IBCKeeper            *ibckeeper.Keeper // IBC Keeper must be a pointer in the app, so we can SetRouter on it correctly
+	EvidenceKeeper       evidencekeeper.Keeper
+	TransferKeeper       ibctransferkeeper.Keeper
+	IBCAccountKeeper     ibcaccountkeeper.Keeper
+	IBCAccountMockKeeper ibcaccountmockkeeper.Keeper
 
 	// make scoped keepers public for test purposes
 	ScopedIBCKeeper        capabilitykeeper.ScopedKeeper
@@ -302,6 +305,9 @@ func NewSimApp(
 	)
 	ibcAccountModule := ibcaccount.NewAppModule(app.IBCAccountKeeper)
 
+	app.IBCAccountMockKeeper = ibcaccountmockkeeper.NewKeeper(app.IBCAccountKeeper)
+	ibcAccountMockModule := ibcaccountmock.NewAppModule(app.IBCAccountMockKeeper)
+
 	// Create static IBC router, add transfer route, then set and seal it
 	ibcRouter := porttypes.NewRouter()
 	ibcRouter.AddRoute(ibctransfertypes.ModuleName, transferModule)
@@ -337,6 +343,7 @@ func NewSimApp(
 		params.NewAppModule(app.ParamsKeeper),
 		transferModule,
 		ibcAccountModule,
+		ibcAccountMockModule,
 	)
 
 	// During begin block slashing happens after distr.BeginBlocker so that

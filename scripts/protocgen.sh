@@ -9,7 +9,7 @@ for dir in $proto_dirs; do
   protoc \
   -I "proto" \
   -I "$cosmos_sdk_dir/third_party/proto" \
-  -I "$cosmos_sdk_dir" \
+  -I "$cosmos_sdk_dir/proto" \
   --gocosmos_out=plugins=interfacetype+grpc,\
 Mgoogle/protobuf/any.proto=github.com/cosmos/cosmos-sdk/codec/types:. \
   $(find "${dir}" -maxdepth 1 -name '*.proto')
