@@ -121,17 +121,6 @@ func (k Keeper) Logger(ctx sdk.Context) log.Logger {
 	return ctx.Logger().With("module", fmt.Sprintf("x/%s-%s", host.ModuleName, types.ModuleName))
 }
 
-func (k Keeper) PacketExecuted(ctx sdk.Context, packet ibcexported.PacketI, acknowledgement []byte) error {
-	// TODO: It seems that latest cosmos-sdk handles the `packet executed` on the IBC handler. So, make this not to do anything.
-	// chanCap, ok := k.scopedKeeper.GetCapability(ctx, host.ChannelCapabilityPath(packet.GetDestPort(), packet.GetDestChannel()))
-	// _, ok := k.scopedKeeper.GetCapability(ctx, host.ChannelCapabilityPath(packet.GetDestPort(), packet.GetDestChannel()))
-	// if !ok {
-	// 	return sdkerrors.Wrap(channeltypes.ErrChannelCapabilityNotFound, "channel capability could not be retrieved for packet")
-	// }
-	// return k.channelKeeper.ReceiveExecuted(ctx, chanCap, packet, acknowledgement)
-	return nil
-}
-
 // IsBound checks if the interchain account module is already bound to the desired port
 func (k Keeper) IsBound(ctx sdk.Context, portID string) bool {
 	_, ok := k.scopedKeeper.GetCapability(ctx, host.PortPath(portID))

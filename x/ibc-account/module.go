@@ -226,9 +226,6 @@ func (am AppModule) OnRecvPacket(
 			acknowledgement.Error = err.Error()
 		}
 
-		if err := am.keeper.PacketExecuted(ctx, packet, acknowledgement.GetBytes()); err != nil {
-			return nil, nil, err
-		}
 		return &sdk.Result{
 			Events: ctx.EventManager().Events().ToABCIEvents(),
 		}, acknowledgement.GetBytes(), nil
