@@ -132,7 +132,7 @@ func (k Keeper) createOutgoingPacket(
 		return []byte{}, types.ErrInvalidOutgoingData
 	}
 
-	counterpartyInfo, ok := k.GetCounterpartyInfo(typ)
+	txEncoder, ok := k.GetTxEncoder(typ)
 	if !ok {
 		return []byte{}, types.ErrUnsupportedChain
 	}
@@ -148,7 +148,7 @@ func (k Keeper) createOutgoingPacket(
 		return []byte{}, types.ErrInvalidOutgoingData
 	}
 
-	txBytes, err := counterpartyInfo.SerializeTx(msgs)
+	txBytes, err := txEncoder(msgs)
 	if err != nil {
 		return []byte{}, sdkerrors.Wrap(err, "invalid packet data or codec")
 	}
