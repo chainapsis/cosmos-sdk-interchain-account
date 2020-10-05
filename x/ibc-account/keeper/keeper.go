@@ -54,15 +54,13 @@ func SerializeCosmosTx(cdc codec.BinaryMarshaler, registry codectypes.InterfaceR
 	}
 }
 
-type TxEncoder func(data interface{}) ([]byte, error)
-
 // Keeper defines the IBC transfer keeper
 type Keeper struct {
 	storeKey sdk.StoreKey
 	cdc      codec.BinaryMarshaler
 
 	// Key can be chain type which means what blockchain framework the host chain was built on or just direct chain id.
-	txEncoders map[string]TxEncoder
+	txEncoders map[string]types.TxEncoder
 
 	hook types.IBCAccountHooks
 
@@ -78,7 +76,7 @@ type Keeper struct {
 // NewKeeper creates a new IBC account Keeper instance
 func NewKeeper(
 	cdc codec.BinaryMarshaler, key sdk.StoreKey,
-	txEncoders map[string]TxEncoder, channelKeeper types.ChannelKeeper, portKeeper types.PortKeeper,
+	txEncoders map[string]types.TxEncoder, channelKeeper types.ChannelKeeper, portKeeper types.PortKeeper,
 	accountKeeper types.AccountKeeper, scopedKeeper capabilitykeeper.ScopedKeeper, router types.Router,
 ) Keeper {
 	return Keeper{
@@ -93,7 +91,7 @@ func NewKeeper(
 	}
 }
 
-func (k Keeper) AddTxEncoder(typ string, txEncoder TxEncoder) error {
+func (k Keeper) AddTxEncoder(typ string, txEncoder types.TxEncoder) error {
 	_, ok := k.txEncoders[typ]
 	if ok {
 		return types.ErrTxEncoderAlreadyRegistered
@@ -102,7 +100,7 @@ func (k Keeper) AddTxEncoder(typ string, txEncoder TxEncoder) error {
 	return nil
 }
 
-func (k Keeper) GetTxEncoder(typ string) (TxEncoder, bool) {
+func (k Keeper) GetTxEncoder(typ string) (types.TxEncoder, bool) {
 	info, ok := k.txEncoders[typ]
 	return info, ok
 }
