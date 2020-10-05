@@ -106,7 +106,7 @@ func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, sourcePort, sourceChannel
 }
 
 // TryRunTx try to send messages to source channel.
-func (k Keeper) TryRunTx(ctx sdk.Context, sourcePort, sourceChannel, chainID string, data interface{}, timeoutHeight clienttypes.Height) ([]byte, error) {
+func (k Keeper) TryRunTx(ctx sdk.Context, sourcePort, sourceChannel, typ string, data interface{}, timeoutHeight clienttypes.Height, timeoutTimestamp uint64) ([]byte, error) {
 	sourceChannelEnd, found := k.channelKeeper.GetChannel(ctx, sourcePort, sourceChannel)
 	if !found {
 		return []byte{}, sdkerrors.Wrap(channeltypes.ErrChannelNotFound, sourceChannel)
@@ -115,7 +115,7 @@ func (k Keeper) TryRunTx(ctx sdk.Context, sourcePort, sourceChannel, chainID str
 	destinationPort := sourceChannelEnd.GetCounterparty().GetPortID()
 	destinationChannel := sourceChannelEnd.GetCounterparty().GetChannelID()
 
-	return k.createOutgoingPacket(ctx, sourcePort, sourceChannel, destinationPort, destinationChannel, chainID, data, timeoutHeight)
+	return k.createOutgoingPacket(ctx, sourcePort, sourceChannel, destinationPort, destinationChannel, typ, data, timeoutHeight, timeoutTimestamp)
 }
 
 func (k Keeper) createOutgoingPacket(
@@ -127,6 +127,7 @@ func (k Keeper) createOutgoingPacket(
 	typ string,
 	data interface{},
 	timeoutHeight clienttypes.Height,
+	timeoutTimestamp uint64,
 ) ([]byte, error) {
 	if data == nil {
 		return []byte{}, types.ErrInvalidOutgoingData
@@ -178,7 +179,7 @@ func (k Keeper) createOutgoingPacket(
 		destinationPort,
 		destinationChannel,
 		timeoutHeight,
-		0,
+		timeoutTimestamp,
 	)
 
 	return k.ComputeVirtualTxHash(packetData.Data, packet.Sequence), k.channelKeeper.SendPacket(ctx, channelCap, packet)

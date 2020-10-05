@@ -300,7 +300,10 @@ func NewSimApp(
 	transferModule := transfer.NewAppModule(app.TransferKeeper)
 
 	app.IBCAccountKeeper = ibcaccountkeeper.NewKeeper(appCodec, keys[ibcaccounttypes.StoreKey],
-		map[string]ibcaccountkeeper.CounterpartyInfo{}, app.IBCKeeper.ChannelKeeper, &app.IBCKeeper.PortKeeper,
+		map[string]ibcaccountkeeper.TxEncoder{
+			// register the tx encoder for cosmos-sdk
+			"cosmos-sdk": ibcaccountkeeper.SerializeCosmosTx(appCodec, interfaceRegistry),
+		}, app.IBCKeeper.ChannelKeeper, &app.IBCKeeper.PortKeeper,
 		app.AccountKeeper, scopedIBCAccountKeeper, app.Router(),
 	)
 	ibcAccountModule := ibcaccount.NewAppModule(app.IBCAccountKeeper)
