@@ -1,12 +1,10 @@
 package keeper
 
 import (
-	"bytes"
 	"encoding/binary"
 
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
 	"github.com/cosmos/cosmos-sdk/codec/unknownproto"
-	"github.com/cosmos/cosmos-sdk/store/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
@@ -14,53 +12,6 @@ import (
 	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 )
-
-// RegisterIBCAccount performs registering IBC account.
-// It will generate the deterministic address by hashing {sourcePort}/{sourceChannel}{salt}.
-func (k Keeper) registerIBCAccount(
-	ctx sdk.Context,
-	destPort,
-	destChannel string,
-	salt []byte,
-) error {
-	identifier := types.GetIdentifier(destPort, destChannel)
-	address := k.GenerateAddress(identifier, salt)
-	err := k.createAccount(ctx, address, identifier)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Create the account if an account with the same address does not exist.
-// It will save the address and matched identifier.
-func (k Keeper) createAccount(ctx sdk.Context, address sdk.AccAddress, identifier string) error {
-	account := k.accountKeeper.GetAccount(ctx, address)
-	// TODO: Discuss the vulnerabilities when creating a new account only if the old account does not exist
-	// Attackers can interrupt creating accounts by sending some assets before the packet is delivered.
-	// So it is needed to check that the account is not created from users.
-	// Returns an error only if the account was created by other chain.
-	// We need to discuss how we can judge this case.
-	if account != nil {
-		return sdkerrors.Wrap(types.ErrAccountAlreadyExist, account.String())
-	}
-	// Set account's address if account is nil
-	account = k.accountKeeper.NewAccountWithAddress(ctx, address)
-	k.accountKeeper.SetAccount(ctx, account)
-
-	store := ctx.KVStore(k.storeKey)
-	store = prefix.NewStore(store, types.KeyPrefixRegisteredAccount)
-	// Save the identifier for each address to check where the interchain account is made from.
-	store.Set(address, []byte(identifier))
-
-	return nil
-}
-
-// Determine account's address that will be created.
-func (k Keeper) GenerateAddress(identifier string, salt []byte) []byte {
-	return tmhash.SumTruncated(append([]byte(identifier), salt...))
-}
 
 // TryRegisterIBCAccount try to register IBC account to source channel.
 // If no source channel exists or doesn't have capability, it will return error.
@@ -278,13 +229,19 @@ func (k Keeper) AuthenticateTx(ctx sdk.Context, msgs []sdk.Msg, identifier strin
 		}
 	}
 
-	store := ctx.KVStore(k.storeKey)
-	store = prefix.NewStore(store, types.KeyPrefixRegisteredAccount)
-
 	for _, signer := range signers {
 		// Check where the interchain account is made from.
-		path := store.Get(signer)
-		if !bytes.Equal(path, []byte(identifier)) {
+		account := k.accountKeeper.GetAccount(ctx, signer)
+		if account == nil {
+			return sdkerrors.ErrUnauthorized
+		}
+
+		ibcAccount, ok := account.(types.IBCAccountI)
+		if !ok {
+			return sdkerrors.ErrUnauthorized
+		}
+
+		if types.GetIdentifier(ibcAccount.GetDestinationPort(), ibcAccount.GetDestinationChannel()) != identifier {
 			return sdkerrors.ErrUnauthorized
 		}
 	}
@@ -319,7 +276,7 @@ func (k Keeper) OnRecvPacket(ctx sdk.Context, packet channeltypes.Packet) error 
 
 	switch data.Type {
 	case types.Type_REGISTER:
-		err := k.registerIBCAccount(ctx, packet.DestinationPort, packet.DestinationChannel, data.Data)
+		_, err := k.registerIBCAccount(ctx, packet.SourcePort, packet.SourceChannel, packet.DestinationPort, packet.DestinationChannel, data.Data)
 		if err != nil {
 			return err
 		}

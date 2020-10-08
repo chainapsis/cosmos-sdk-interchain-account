@@ -39,10 +39,8 @@ func (AppModuleBasic) Name() string {
 }
 
 // RegisterLegacyAminoCodec implements AppModuleBasic interface
-func (AppModuleBasic) RegisterLegacyAminoCodec(*codec.LegacyAmino) {}
-
-func (AppModuleBasic) RegisterCodec(cdc *codec.LegacyAmino) {
-	// noop
+func (AppModuleBasic) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
+	types.RegisterLegacyAminoCodec(cdc)
 }
 
 func (AppModuleBasic) DefaultGenesis(cdc codec.JSONMarshaler) json.RawMessage {
@@ -69,7 +67,7 @@ func (AppModuleBasic) GetQueryCmd() *cobra.Command {
 
 // RegisterInterfaces registers module concrete types into protobuf Any.
 func (AppModuleBasic) RegisterInterfaces(registry codectypes.InterfaceRegistry) {
-	// noop
+	types.RegisterInterfaces(registry)
 }
 
 // RegisterGRPCRoutes registers the gRPC Gateway routes for the ibc-account module.

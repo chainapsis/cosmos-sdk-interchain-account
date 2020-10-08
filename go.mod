@@ -3,7 +3,9 @@ module github.com/chainapsis/cosmos-sdk-interchain-account
 go 1.14
 
 require (
+	github.com/coreos/etcd v3.3.13+incompatible
 	github.com/cosmos/cosmos-sdk v0.34.4-0.20200921130040-27db2cf89772
+	github.com/ghodss/yaml v1.0.0
 	github.com/gibson042/canonicaljson-go v1.0.3 // indirect
 	github.com/gogo/protobuf v1.3.1
 	github.com/gorilla/mux v1.8.0
