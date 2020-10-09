@@ -2,9 +2,11 @@ package types
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 
-	"github.com/ghodss/yaml"
+	yaml "gopkg.in/yaml.v2"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -21,7 +23,8 @@ type IBCAccountI interface {
 }
 
 var (
-	_ IBCAccountI = (*IBCAccount)(nil)
+	_ authtypes.GenesisAccount = (*IBCAccount)(nil)
+	_ IBCAccountI              = (*IBCAccount)(nil)
 )
 
 func NewIBCAccount(ba *authtypes.BaseAccount, sourcePort, sourceChannel, destinationPort, destinationChannel string) *IBCAccount {
@@ -58,6 +61,26 @@ func (ia IBCAccount) GetDestinationPort() string {
 
 func (ia IBCAccount) GetDestinationChannel() string {
 	return ia.DestinationChannel
+}
+
+func (ia IBCAccount) Validate() error {
+	if strings.TrimSpace(ia.SourcePort) == "" {
+		return errors.New("ibc account's source port cannot be blank")
+	}
+
+	if strings.TrimSpace(ia.SourceChannel) == "" {
+		return errors.New("ibc account's source channel cannot be blank")
+	}
+
+	if strings.TrimSpace(ia.DestinationPort) == "" {
+		return errors.New("ibc account's destination port cannot be blank")
+	}
+
+	if strings.TrimSpace(ia.DestinationChannel) == "" {
+		return errors.New("ibc account's destination channel cannot be blank")
+	}
+
+	return ia.BaseAccount.Validate()
 }
 
 type ibcAccountPretty struct {

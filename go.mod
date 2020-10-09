@@ -16,6 +16,7 @@ require (
 	github.com/tendermint/tendermint v0.34.0-rc3.0.20200907055413-3359e0bf2f84
 	github.com/tendermint/tm-db v0.6.2
 	google.golang.org/grpc v1.32.0
+	gopkg.in/yaml.v2 v2.3.0
 	rsc.io/quote/v3 v3.1.0 // indirect
 )
 
