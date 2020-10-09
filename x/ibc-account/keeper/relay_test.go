@@ -42,12 +42,16 @@ func (suite *KeeperTestSuite) TestTryRegisterIBCAccount() {
 	packetKey := host.KeyPacketCommitment(packet.GetSourcePort(), packet.GetSourceChannel(), packet.GetSequence())
 	proof, proofHeight := suite.chainA.QueryProof(packetKey)
 
+	nextAccNum := len(suite.chainB.App.AccountKeeper.GetAllAccounts(suite.chainB.GetContext()))
+
 	recvMsg := channeltypes.NewMsgRecvPacket(packet, proof, proofHeight, suite.chainB.SenderAccount.GetAddress())
 	err = suite.coordinator.SendMsg(suite.chainB, suite.chainA, channelA.ClientID, recvMsg)
 	suite.Require().NoError(err) // message committed
 
 	acc := suite.chainB.App.AccountKeeper.GetAccount(suite.chainB.GetContext(), suite.chainB.App.IBCAccountKeeper.GenerateAddress(types.GetIdentifier(channelB.PortID, channelB.ID), []byte("test")))
 	suite.Require().NotNil(acc)
+
+	suite.Require().Equal(nextAccNum, int(acc.GetAccountNumber()))
 }
 
 func (suite *KeeperTestSuite) TestRunTx() {
