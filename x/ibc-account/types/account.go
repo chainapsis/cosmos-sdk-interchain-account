@@ -101,8 +101,13 @@ func (ia IBCAccount) String() string {
 
 // MarshalYAML returns the YAML representation of a IBCAccount.
 func (ia IBCAccount) MarshalYAML() (interface{}, error) {
+	accAddr, err := sdk.AccAddressFromBech32(ia.Address)
+	if err != nil {
+		return nil, err
+	}
+
 	bs, err := yaml.Marshal(ibcAccountPretty{
-		Address:            ia.Address,
+		Address:            accAddr,
 		PubKey:             "",
 		AccountNumber:      ia.AccountNumber,
 		Sequence:           ia.Sequence,
@@ -121,8 +126,13 @@ func (ia IBCAccount) MarshalYAML() (interface{}, error) {
 
 // MarshalJSON returns the JSON representation of a IBCAccount.
 func (ia IBCAccount) MarshalJSON() ([]byte, error) {
+	accAddr, err := sdk.AccAddressFromBech32(ia.Address)
+	if err != nil {
+		return nil, err
+	}
+
 	return json.Marshal(ibcAccountPretty{
-		Address:            ia.Address,
+		Address:            accAddr,
 		PubKey:             "",
 		AccountNumber:      ia.AccountNumber,
 		Sequence:           ia.Sequence,

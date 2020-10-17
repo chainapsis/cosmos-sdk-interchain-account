@@ -4,7 +4,7 @@ import (
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/keeper"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
 )
 
 type Keeper struct {

@@ -6,15 +6,15 @@ import (
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
-	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
-	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
-	"github.com/cosmos/cosmos-sdk/x/ibc/exported"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
+	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
+	host "github.com/cosmos/cosmos-sdk/x/ibc/core/24-host"
+	ibctmtypes "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 )
 
 func (suite *KeeperTestSuite) TestTryRegisterIBCAccount() {
 	// init connection and channel between chain A and chain B
-	_, _, connA, connB := suite.coordinator.SetupClientConnections(suite.chainA, suite.chainB, exported.Tendermint)
+	_, _, connA, connB := suite.coordinator.SetupClientConnections(suite.chainA, suite.chainB, ibctmtypes.Tendermint)
 	channelA, channelB := suite.coordinator.CreateIBCAccountChannels(suite.chainA, suite.chainB, connA, connB, channeltypes.ORDERED)
 
 	// assume that chain A try to register IBC Account to chain B
@@ -23,8 +23,8 @@ func (suite *KeeperTestSuite) TestTryRegisterIBCAccount() {
 		SourceChannel: channelA.ID,
 		Salt:          []byte("test"),
 		TimeoutHeight: clienttypes.Height{
-			EpochNumber: 0,
-			EpochHeight: 100,
+			VersionNumber: 0,
+			VersionHeight: 100,
 		},
 		TimeoutTimestamp: 0,
 		Sender:           suite.chainA.SenderAccount.GetAddress(),
@@ -56,7 +56,7 @@ func (suite *KeeperTestSuite) TestTryRegisterIBCAccount() {
 
 func (suite *KeeperTestSuite) TestRunTx() {
 	// init connection and channel between chain A and chain B
-	_, _, connA, connB := suite.coordinator.SetupClientConnections(suite.chainA, suite.chainB, exported.Tendermint)
+	_, _, connA, connB := suite.coordinator.SetupClientConnections(suite.chainA, suite.chainB, ibctmtypes.Tendermint)
 	channelA, channelB := suite.coordinator.CreateIBCAccountChannels(suite.chainA, suite.chainB, connA, connB, channeltypes.ORDERED)
 
 	func() {
@@ -66,8 +66,8 @@ func (suite *KeeperTestSuite) TestRunTx() {
 			SourceChannel: channelA.ID,
 			Salt:          []byte("test"),
 			TimeoutHeight: clienttypes.Height{
-				EpochNumber: 0,
-				EpochHeight: 100,
+				VersionNumber: 0,
+				VersionHeight: 100,
 			},
 			TimeoutTimestamp: 0,
 			Sender:           suite.chainA.SenderAccount.GetAddress(),
@@ -109,8 +109,8 @@ func (suite *KeeperTestSuite) TestRunTx() {
 		SourcePort:    channelA.PortID,
 		SourceChannel: channelA.ID,
 		TimeoutHeight: clienttypes.Height{
-			EpochNumber: 0,
-			EpochHeight: 100,
+			VersionNumber: 0,
+			VersionHeight: 100,
 		},
 		TimeoutTimestamp: 0,
 		FromAddress:      acc.GetAddress(),

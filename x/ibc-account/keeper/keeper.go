@@ -8,7 +8,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	capabilitykeeper "github.com/cosmos/cosmos-sdk/x/capability/keeper"
 	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
-	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
+	host "github.com/cosmos/cosmos-sdk/x/ibc/core/24-host"
 
 	"github.com/tendermint/tendermint/libs/log"
 
