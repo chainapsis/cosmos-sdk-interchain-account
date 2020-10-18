@@ -38,3 +38,16 @@ func (k Keeper) registerIBCAccount(ctx sdk.Context, sourcePort, sourceChannel, d
 func (k Keeper) GenerateAddress(identifier string, salt []byte) []byte {
 	return tmhash.SumTruncated(append([]byte(identifier), salt...))
 }
+
+func (k Keeper) GetIBCAccount(ctx sdk.Context, addr sdk.AccAddress) (types.IBCAccount, error) {
+	acc := k.accountKeeper.GetAccount(ctx, addr)
+	if acc == nil {
+		return types.IBCAccount{}, sdkerrors.Wrap(types.ErrIBCAccountNotFound, "their is no account")
+	}
+
+	ibcAcc, ok := acc.(*types.IBCAccount)
+	if !ok {
+		return types.IBCAccount{}, sdkerrors.Wrap(types.ErrIBCAccountNotFound, "account is not IBC account")
+	}
+	return *ibcAcc, nil
+}
