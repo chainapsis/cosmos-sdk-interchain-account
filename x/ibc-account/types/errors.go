@@ -11,4 +11,5 @@ var (
 	ErrInvalidOutgoingData        = sdkerrors.Register(ModuleName, 4, "invalid outgoing data")
 	ErrInvalidRoute               = sdkerrors.Register(ModuleName, 5, "invalid route")
 	ErrTxEncoderAlreadyRegistered = sdkerrors.Register(ModuleName, 6, "tx encoder already registered")
+	ErrIBCAccountNotFound         = sdkerrors.Register(ModuleName, 7, "ibc account not found")
 )
