@@ -6,8 +6,6 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 
-	"github.com/gogo/protobuf/grpc"
-
 	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
 
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
@@ -71,8 +69,8 @@ func (AppModuleBasic) RegisterInterfaces(registry codectypes.InterfaceRegistry) 
 	types.RegisterInterfaces(registry)
 }
 
-// RegisterGRPCRoutes registers the gRPC Gateway routes for the ibc-account module.
-func (AppModuleBasic) RegisterGRPCRoutes(clientCtx client.Context, mux *runtime.ServeMux) {
+// RegisterGRPCGatewayRoutes registers the gRPC Gateway routes for the ibc-account module.
+func (AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *runtime.ServeMux) {
 	types.RegisterQueryHandlerClient(context.Background(), mux, types.NewQueryClient(clientCtx))
 }
 
@@ -108,10 +106,10 @@ func (am AppModule) LegacyQuerierHandler(*codec.LegacyAmino) sdk.Querier {
 	return nil
 }
 
-// RegisterQueryService registers a GRPC query service to respond to the
+// RegisterServices registers a GRPC query service to respond to the
 // module-specific GRPC queries.
-func (am AppModule) RegisterQueryService(server grpc.Server) {
-	types.RegisterQueryServer(server, am.keeper)
+func (am AppModule) RegisterServices(cfg module.Configurator) {
+	types.RegisterQueryServer(cfg.QueryServer(), am.keeper)
 }
 
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONMarshaler, data json.RawMessage) []abci.ValidatorUpdate {

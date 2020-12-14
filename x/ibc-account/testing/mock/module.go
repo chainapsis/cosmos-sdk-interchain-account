@@ -3,7 +3,8 @@ package mock
 import (
 	"encoding/json"
 
-	"github.com/gogo/protobuf/grpc"
+	"github.com/cosmos/cosmos-sdk/types/module"
+
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 
 	"github.com/gorilla/mux"
@@ -17,6 +18,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+)
+
+var (
+	_ module.AppModule      = AppModule{}
+	_ module.AppModuleBasic = AppModuleBasic{}
 )
 
 // AppModuleBasic is the mock AppModuleBasic.
@@ -48,8 +54,10 @@ func (AppModuleBasic) ValidateGenesis(codec.JSONMarshaler, client.TxEncodingConf
 // RegisterRESTRoutes implements AppModuleBasic interface.
 func (AppModuleBasic) RegisterRESTRoutes(clientCtx client.Context, rtr *mux.Router) {}
 
-// RegisterGRPCRoutes implements AppModuleBasic interface.
-func (a AppModuleBasic) RegisterGRPCRoutes(_ client.Context, _ *runtime.ServeMux) {}
+// RegisterGRPCGatewayRoutes registers the gRPC Gateway routes for the bank module.
+func (AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *runtime.ServeMux) {
+	// noop
+}
 
 // GetTxCmd implements AppModuleBasic interface.
 func (AppModuleBasic) GetTxCmd() *cobra.Command {
@@ -92,8 +100,10 @@ func (am AppModule) LegacyQuerierHandler(*codec.LegacyAmino) sdk.Querier {
 	return nil
 }
 
-// RegisterQueryService implements the AppModule interface.
-func (am AppModule) RegisterQueryService(server grpc.Server) {}
+// RegisterServices registers module services.
+func (am AppModule) RegisterServices(cfg module.Configurator) {
+	// noop
+}
 
 // InitGenesis implements the AppModule interface.
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONMarshaler, data json.RawMessage) []abci.ValidatorUpdate {

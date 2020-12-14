@@ -10,6 +10,7 @@ import (
 // Any.
 func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
 	registry.RegisterImplementations((*sdk.Msg)(nil), &MsgTryRegisterIBCAccount{})
+	registry.RegisterImplementations((*sdk.Msg)(nil), &MsgTryRunTxMsgSend{})
 }
 
 var (

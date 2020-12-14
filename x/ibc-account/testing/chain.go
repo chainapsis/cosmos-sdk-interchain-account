@@ -49,9 +49,8 @@ const (
 	UnbondingPeriod time.Duration = time.Hour * 24 * 7 * 3
 	MaxClockDrift   time.Duration = time.Second * 10
 
-	DefaultChannelVersion  = ibcaccounttypes.Version
-	DefaultOpenInitVersion = ""
-	InvalidID              = "IDisInvalid"
+	DefaultChannelVersion = ibcaccounttypes.Version
+	InvalidID             = "IDisInvalid"
 
 	ConnectionIDPrefix = "conn"
 	ChannelIDPrefix    = "chan"
@@ -66,6 +65,8 @@ const (
 var (
 	DefaultConsensusParams = simapp.DefaultConsensusParams
 
+	DefaultOpenInitVersion *connectiontypes.Version
+
 	// Default params variables used to create a TM client
 	DefaultTrustLevel ibctmtypes.Fraction = ibctmtypes.DefaultTrustLevel
 	TestHash                              = tmhash.Sum([]byte("TESTING HASH"))
@@ -73,7 +74,7 @@ var (
 
 	UpgradePath = fmt.Sprintf("%s/%s", "upgrade", "upgradedClient")
 
-	ConnectionVersion = connectiontypes.GetCompatibleEncodedVersions()[0]
+	ConnectionVersion = connectiontypes.ExportedVersionsToProto(connectiontypes.GetCompatibleVersions())[0]
 
 	// Conditionals for expected output of executing messages.
 	// Change values to false to test messages expected to fail.
@@ -147,7 +148,7 @@ func NewTestChain(t *testing.T, chainID string) *TestChain {
 		Time:    globalStartTime,
 	}
 
-	txConfig := simapp.MakeEncodingConfig().TxConfig
+	txConfig := simapp.MakeTestEncodingConfig().TxConfig
 
 	// create an account to send transactions from
 	chain := &TestChain{
@@ -334,7 +335,12 @@ func (chain *TestChain) GetValsAtHeight(height int64) (*tmtypes.ValidatorSet, bo
 	}
 
 	valSet := stakingtypes.Validators(histInfo.Valset)
-	return tmtypes.NewValidatorSet(valSet.ToTmValidators()), true
+
+	tmValidators, err := valSet.ToTmValidators()
+	if err != nil {
+		panic(err)
+	}
+	return tmtypes.NewValidatorSet(tmValidators), true
 }
 
 // GetConnection retrieves an IBC Connection for the provided TestConnection. The
@@ -596,7 +602,7 @@ func (chain *TestChain) ConnectionOpenTry(
 	msg := connectiontypes.NewMsgConnectionOpenTry(
 		connection.ID, connection.ID, connection.ClientID, // testing doesn't use flexible selection
 		counterpartyConnection.ID, counterpartyConnection.ClientID,
-		counterpartyClient, counterparty.GetPrefix(), []string{ConnectionVersion},
+		counterpartyClient, counterparty.GetPrefix(), []*connectiontypes.Version{ConnectionVersion},
 		proofInit, proofClient, proofConsensus,
 		proofHeight, consensusHeight,
 		chain.SenderAccount.GetAddress(),
@@ -805,6 +811,7 @@ func (chain *TestChain) SendPacket(
 	return nil
 }
 
+/*
 // WriteReceipt simulates receiving and writing a receipt to the chain.
 func (chain *TestChain) WriteReceipt(
 	packet exported.PacketI,
@@ -823,13 +830,16 @@ func (chain *TestChain) WriteReceipt(
 
 	return nil
 }
+*/
 
 // WriteAcknowledgement simulates writing an acknowledgement to the chain.
 func (chain *TestChain) WriteAcknowledgement(
 	packet exported.PacketI,
 ) error {
+	channelCap := chain.GetChannelCapability(packet.GetDestPort(), packet.GetDestChannel())
+
 	// no need to send message, acting as a handler
-	err := chain.App.IBCKeeper.ChannelKeeper.WriteAcknowledgement(chain.GetContext(), packet, TestHash)
+	err := chain.App.IBCKeeper.ChannelKeeper.WriteAcknowledgement(chain.GetContext(), channelCap, packet, TestHash)
 	if err != nil {
 		return err
 	}
@@ -849,7 +859,7 @@ func (chain *TestChain) AcknowledgementExecuted(
 	channelCap := chain.GetChannelCapability(packet.GetSourcePort(), packet.GetSourceChannel())
 
 	// no need to send message, acting as a handler
-	err := chain.App.IBCKeeper.ChannelKeeper.AcknowledgementExecuted(chain.GetContext(), channelCap, packet)
+	err := chain.App.IBCKeeper.ChannelKeeper.WriteAcknowledgement(chain.GetContext(), channelCap, packet, TestHash)
 	if err != nil {
 		return err
 	}

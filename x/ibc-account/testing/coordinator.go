@@ -242,7 +242,7 @@ func (coord *Coordinator) WriteReceipt(
 	packet exported.PacketI,
 	counterpartyClientID string,
 ) error {
-	if err := source.WriteReceipt(packet); err != nil {
+	if err := source.WriteAcknowledgement(packet); err != nil {
 		return err
 	}
 	coord.IncrementTime()

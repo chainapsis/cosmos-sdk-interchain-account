@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
-	"github.com/cosmos/cosmos-sdk/codec/unknownproto"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
@@ -139,21 +138,12 @@ func (k Keeper) createOutgoingPacket(
 func (k Keeper) DeserializeTx(_ sdk.Context, txBytes []byte) ([]sdk.Msg, error) {
 	var txRaw types.IBCTxRaw
 
-	err := unknownproto.RejectUnknownFieldsStrict(txBytes, &txRaw)
-	if err != nil {
-		return nil, err
-	}
-
-	err = k.cdc.UnmarshalBinaryBare(txBytes, &txRaw)
+	err := k.cdc.UnmarshalBinaryBare(txBytes, &txRaw)
 	if err != nil {
 		return nil, err
 	}
 
 	var txBody types.IBCTxBody
-	err = unknownproto.RejectUnknownFieldsStrict(txRaw.BodyBytes, &txBody)
-	if err != nil {
-		return nil, err
-	}
 
 	err = k.cdc.UnmarshalBinaryBare(txRaw.BodyBytes, &txBody)
 	if err != nil {

@@ -2,7 +2,18 @@ package simapp
 
 import (
 	"io"
+	"net/http"
 	"os"
+
+	servertypes "github.com/cosmos/cosmos-sdk/server/types"
+
+	"github.com/spf13/cast"
+
+	"github.com/gorilla/mux"
+	"github.com/rakyll/statik/fs"
+
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/server/config"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/log"
@@ -31,6 +42,7 @@ import (
 	authrest "github.com/cosmos/cosmos-sdk/x/auth/client/rest"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	authsims "github.com/cosmos/cosmos-sdk/x/auth/simulation"
+	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
@@ -111,6 +123,7 @@ var (
 		evidence.AppModuleBasic{},
 		transfer.AppModuleBasic{},
 		ibcaccount.AppModuleBasic{},
+		ibcaccountmock.AppModuleBasic{},
 	)
 
 	// module account permissions
@@ -184,7 +197,8 @@ type SimApp struct {
 // NewSimApp returns a reference to an initialized SimApp.
 func NewSimApp(
 	logger log.Logger, db dbm.DB, traceStore io.Writer, loadLatest bool, skipUpgradeHeights map[int64]bool,
-	homePath string, invCheckPeriod uint, encodingConfig simappparams.EncodingConfig, baseAppOptions ...func(*baseapp.BaseApp),
+	homePath string, invCheckPeriod uint, encodingConfig simappparams.EncodingConfig,
+	appOpts servertypes.AppOptions, baseAppOptions ...func(*baseapp.BaseApp),
 ) *SimApp {
 
 	// TODO: Remove cdc in favor of appCodec once all modules are migrated.
@@ -195,8 +209,7 @@ func NewSimApp(
 	bApp := baseapp.NewBaseApp(appName, logger, db, encodingConfig.TxConfig.TxDecoder(), baseAppOptions...)
 	bApp.SetCommitMultiStoreTracer(traceStore)
 	bApp.SetAppVersion(version.Version)
-	bApp.GRPCQueryRouter().SetInterfaceRegistry(interfaceRegistry)
-	bApp.GRPCQueryRouter().RegisterSimulateService(bApp.Simulate, interfaceRegistry)
+	bApp.SetInterfaceRegistry(interfaceRegistry)
 
 	keys := sdk.NewKVStoreKeys(
 		authtypes.StoreKey, banktypes.StoreKey, stakingtypes.StoreKey,
@@ -324,6 +337,10 @@ func NewSimApp(
 	// If evidence needs to be handled for the app, set routes in router here and seal
 	app.EvidenceKeeper = *evidenceKeeper
 
+	// NOTE: we may consider parsing `appOpts` inside module constructors. For the moment
+	// we prefer to be more strict in what arguments the modules expect.
+	var skipGenesisInvariants = cast.ToBool(appOpts.Get(crisis.FlagSkipGenesisInvariants))
+
 	// NOTE: Any module instantiated in the module manager that is later modified
 	// must be passed by reference here.
 	app.mm = module.NewManager(
@@ -334,7 +351,7 @@ func NewSimApp(
 		auth.NewAppModule(appCodec, app.AccountKeeper, authsims.RandomGenesisAccounts),
 		bank.NewAppModule(appCodec, app.BankKeeper, app.AccountKeeper),
 		capability.NewAppModule(appCodec, *app.CapabilityKeeper),
-		crisis.NewAppModule(&app.CrisisKeeper),
+		crisis.NewAppModule(&app.CrisisKeeper, skipGenesisInvariants),
 		gov.NewAppModule(appCodec, app.GovKeeper, app.AccountKeeper, app.BankKeeper),
 		mint.NewAppModule(appCodec, app.MintKeeper, app.AccountKeeper),
 		slashing.NewAppModule(appCodec, app.SlashingKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper),
@@ -372,10 +389,10 @@ func NewSimApp(
 
 	app.mm.RegisterInvariants(&app.CrisisKeeper)
 	app.mm.RegisterRoutes(app.Router(), app.QueryRouter(), encodingConfig.Amino)
-	app.mm.RegisterQueryServices(app.GRPCQueryRouter())
+	app.mm.RegisterServices(module.NewConfigurator(app.MsgServiceRouter(), app.GRPCQueryRouter()))
 
 	// add test gRPC service for testing gRPC queries in isolation
-	testdata.RegisterTestServiceServer(app.GRPCQueryRouter(), testdata.TestServiceImpl{})
+	testdata.RegisterQueryServer(app.GRPCQueryRouter(), testdata.QueryImpl{})
 
 	// create the simulation manager and define the order of the modules for deterministic simulations
 	//
@@ -439,7 +456,7 @@ func NewSimApp(
 // simapp. It is useful for tests and clients who do not want to construct the
 // full simapp
 func MakeCodecs() (codec.Marshaler, *codec.LegacyAmino) {
-	config := MakeEncodingConfig()
+	config := MakeTestEncodingConfig()
 	return config.Marshaler, config.Amino
 }
 
@@ -544,10 +561,38 @@ func (app *SimApp) SimulationManager() *module.SimulationManager {
 
 // RegisterAPIRoutes registers all application module routes with the provided
 // API server.
-func (app *SimApp) RegisterAPIRoutes(apiSvr *api.Server) {
-	rpc.RegisterRoutes(apiSvr.ClientCtx, apiSvr.Router)
-	authrest.RegisterTxRoutes(apiSvr.ClientCtx, apiSvr.Router)
-	ModuleBasics.RegisterRESTRoutes(apiSvr.ClientCtx, apiSvr.Router)
+func (app *SimApp) RegisterAPIRoutes(apiSvr *api.Server, apiConfig config.APIConfig) {
+	clientCtx := apiSvr.ClientCtx
+	rpc.RegisterRoutes(clientCtx, apiSvr.Router)
+	// Register legacy tx routes.
+	authrest.RegisterTxRoutes(clientCtx, apiSvr.Router)
+	// Register new tx routes from grpc-gateway.
+	authtx.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCRouter)
+
+	// Register legacy and grpc-gateway routes for all modules.
+	ModuleBasics.RegisterRESTRoutes(clientCtx, apiSvr.Router)
+	ModuleBasics.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCRouter)
+
+	// register swagger API from root so that other applications can override easily
+	if apiConfig.Swagger {
+		RegisterSwaggerAPI(clientCtx, apiSvr.Router)
+	}
+}
+
+// RegisterTxService implements the Application.RegisterTxService method.
+func (app *SimApp) RegisterTxService(clientCtx client.Context) {
+	authtx.RegisterTxService(app.BaseApp.GRPCQueryRouter(), clientCtx, app.BaseApp.Simulate, app.interfaceRegistry)
+}
+
+// RegisterSwaggerAPI registers swagger route with API Server
+func RegisterSwaggerAPI(ctx client.Context, rtr *mux.Router) {
+	statikFS, err := fs.New()
+	if err != nil {
+		panic(err)
+	}
+
+	staticServer := http.FileServer(statikFS)
+	rtr.PathPrefix("/swagger/").Handler(http.StripPrefix("/swagger/", staticServer))
 }
 
 // GetMaccPerms returns a copy of the module account permissions
