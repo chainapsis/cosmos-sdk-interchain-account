@@ -4,13 +4,13 @@ import "fmt"
 
 const (
 	// ModuleName defines the IBC transfer name
-	ModuleName = "interchainaccount"
+	ModuleName = "ibcaccount"
 
 	// Version defines the current version the IBC tranfer
 	// module supports
 	Version = "ics27-1"
 
-	PortID = "interchainaccount"
+	PortID = "ibcaccount"
 
 	StoreKey  = ModuleName
 	RouterKey = ModuleName
