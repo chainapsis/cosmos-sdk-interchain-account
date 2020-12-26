@@ -13,6 +13,10 @@ service Query {
     rpc IBCAccount(QueryIBCAccountRequest) returns (QueryIBCAccountResponse) {
         option (google.api.http).get = "/cosmos/ibc-account/v1beta1/ibc-account/{address}";
     }
+
+    rpc IBCAccountFromData(QueryIBCAccountFromDataRequest) returns (QueryIBCAccountResponse) {
+        option (google.api.http).get = "/cosmos/ibc-account/v1beta1/ibc-account-from-data/{port}/{channel}/{data}";
+    }
 }
 
 message QueryIBCAccountRequest {
@@ -21,6 +25,15 @@ message QueryIBCAccountRequest {
 
     // address is the address to query.
     string address = 1;
+}
+
+message QueryIBCAccountFromDataRequest {
+    option (gogoproto.equal)           = false;
+    option (gogoproto.goproto_getters) = false;
+
+    string port = 1;
+    string channel = 2;
+    string data = 3;
 }
 
 message QueryIBCAccountResponse {
