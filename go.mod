@@ -16,6 +16,7 @@ require (
 	github.com/regen-network/cosmos-proto v0.3.0
 	github.com/spf13/cast v1.3.1
 	github.com/spf13/cobra v1.1.1
+	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.6.1
 	github.com/tendermint/starport v0.12.1-0.20201213075021-0e5d2c0217eb
 	github.com/tendermint/tendermint v0.34.0-rc6

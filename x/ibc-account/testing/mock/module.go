@@ -12,6 +12,7 @@ import (
 
 	abci "github.com/tendermint/tendermint/abci/types"
 
+	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/testing/mock/client/cli"
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/testing/mock/keeper"
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/testing/mock/types"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -61,7 +62,7 @@ func (AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *r
 
 // GetTxCmd implements AppModuleBasic interface.
 func (AppModuleBasic) GetTxCmd() *cobra.Command {
-	return nil
+	return cli.NewTxCmd()
 }
 
 // GetQueryCmd implements AppModuleBasic interface.
