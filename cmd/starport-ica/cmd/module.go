@@ -20,9 +20,9 @@ import (
 )
 
 const (
-	icaImport        = "github.com/chainapsis/cosmos-sdk-interchain-account"
-	apppkg           = "app"
-	moduleDir        = "x"
+	icaImport = "github.com/chainapsis/cosmos-sdk-interchain-account"
+	apppkg    = "app"
+	// moduleDir        = "x"
 	icaVersionCommit = "daba1321259a442f929f82738b9a9d632eeb4351"
 
 	// Placeholders in Stargate app.go
@@ -68,13 +68,22 @@ func importModuleHandler(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if installed {
+	if installed && len(args) == 0 {
 		return nil
 	}
 
-	err = installICA()
-	if err != nil {
-		return err
+	if !installed {
+		err = installICA()
+		if err != nil {
+			return err
+		}
+	}
+
+	if len(args) > 0 {
+		if args[0] == "mock" {
+			return importMockModule()
+		}
+		return fmt.Errorf("unknown module")
 	}
 
 	g := genny.New()
@@ -122,6 +131,61 @@ func importModuleHandler(cmd *cobra.Command, args []string) error {
 
 		template6 := `%[1]v
 		ibcAccountModule,`
+		replacement6 := fmt.Sprintf(template6, placeholderSgAppAppModule)
+		content = strings.Replace(content, placeholderSgAppAppModule, replacement6, 1)
+
+		template7 := `%[1]v
+		ibcaccounttypes.ModuleName,`
+		replacement7 := fmt.Sprintf(template7, placeholderSgAppInitGenesis)
+		content = strings.Replace(content, placeholderSgAppInitGenesis, replacement7, 1)
+
+		template8 := `%[1]v
+	paramsKeeper.Subspace(ibcaccounttypes.ModuleName)`
+		replacement8 := fmt.Sprintf(template8, placeholderSgAppParamSubspace)
+		content = strings.Replace(content, placeholderSgAppParamSubspace, replacement8, 1)
+
+		newFile := genny.NewFileS(path, content)
+		return r.File(newFile)
+	})
+
+	run := genny.WetRunner(context.Background())
+	run.With(g)
+
+	return run.Run()
+}
+
+func importMockModule() error {
+	g := genny.New()
+	g.RunFn(func(r *genny.Runner) error {
+		path := "app/app.go"
+		f, err := r.Disk.Find(path)
+		if err != nil {
+			return err
+		}
+		template := `%[1]v
+	ibcaccountmock "github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/testing/mock"
+	ibcaccountmockkeeper "github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/testing/mock/keeper"`
+		replacement := fmt.Sprintf(template, placeholderSgAppModuleImport)
+		content := strings.Replace(f.String(), placeholderSgAppModuleImport, replacement, 1)
+
+		template2 := `%[1]v
+		ibcaccountmock.AppModuleBasic{},`
+		replacement2 := fmt.Sprintf(template2, placeholderSgAppModuleBasic)
+		content = strings.Replace(content, placeholderSgAppModuleBasic, replacement2, 1)
+
+		template3 := `%[1]v
+	IBCAccountMockKeeper ibcaccountmockkeeper.Keeper`
+		replacement3 := fmt.Sprintf(template3, placeholderSgAppKeeperDeclaration)
+		content = strings.Replace(content, placeholderSgAppKeeperDeclaration, replacement3, 1)
+
+		template5 := `%[1]v
+	app.IBCAccountMockKeeper = ibcaccountmockkeeper.NewKeeper(app.IBCAccountKeeper)
+	ibcAccountMockModule := ibcaccountmock.NewAppModule(app.IBCAccountMockKeeper)`
+		replacement5 := fmt.Sprintf(template5, placeholderSgAppKeeperDefinition)
+		content = strings.Replace(content, placeholderSgAppKeeperDefinition, replacement5, 1)
+
+		template6 := `%[1]v
+		ibcAccountMockModule,`
 		replacement6 := fmt.Sprintf(template6, placeholderSgAppAppModule)
 		content = strings.Replace(content, placeholderSgAppAppModule, replacement6, 1)
 
