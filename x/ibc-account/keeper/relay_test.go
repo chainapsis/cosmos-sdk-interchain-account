@@ -1,190 +1,152 @@
 package keeper_test
 
 import (
-	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/keeper"
+	ibcaccountkeeper "github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/keeper"
+	ibcaccountmocktypes "github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/testing/mock/types"
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	connection "github.com/cosmos/cosmos-sdk/x/ibc/03-connection"
-	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
-	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
-	"math"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
+	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
+	host "github.com/cosmos/cosmos-sdk/x/ibc/core/24-host"
+	ibctmtypes "github.com/cosmos/cosmos-sdk/x/ibc/light-clients/07-tendermint/types"
 )
 
-func (suite *KeeperTestSuite) TestCreateIBCAccount() {
-	suite.initChannelAtoB()
+func (suite *KeeperTestSuite) TestTryRegisterIBCAccount() {
+	// init connection and channel between chain A and chain B
+	_, _, connA, connB := suite.coordinator.SetupClientConnections(suite.chainA, suite.chainB, ibctmtypes.Tendermint)
+	channelA, channelB := suite.coordinator.CreateIBCAccountChannels(suite.chainA, suite.chainB, connA, connB, channeltypes.ORDERED)
 
-	err := suite.chainA.App.IBCAccountKeeper.TryRegisterIBCAccount(suite.chainA.GetContext(), testClientIDB, testPort1, testChannel1, testSalt)
-	suite.Require().Nil(err, "could not request creating ia account")
+	// assume that chain A try to register IBC Account to chain B
+	msg := &ibcaccountmocktypes.MsgTryRegisterIBCAccount{
+		SourcePort:    channelA.PortID,
+		SourceChannel: channelA.ID,
+		Salt:          []byte("test"),
+		TimeoutHeight: clienttypes.Height{
+			VersionNumber: 0,
+			VersionHeight: 100,
+		},
+		TimeoutTimestamp: 0,
+		Sender:           suite.chainA.SenderAccount.GetAddress(),
+	}
+	err := suite.coordinator.SendMsg(suite.chainA, suite.chainB, channelB.ClientID, msg)
+	suite.Require().NoError(err) // message committed
 
-	packetCommitment := suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 1)
-	suite.Require().Greater(len(packetCommitment), 0, "packet commitment is empty")
+	packetData := types.IBCAccountPacketData{
+		Type: types.Type_REGISTER,
+		Data: []byte("test"),
+	}
+	packet := channeltypes.NewPacket(packetData.GetBytes(), 1, channelA.PortID, channelA.ID, channelB.PortID, channelB.ID, clienttypes.NewHeight(0, 100), 0)
 
-	packet := channeltypes.NewPacket(
-		types.IBCAccountPacketData{Type: types.Type_REGISTER, Data: []byte(testSalt)}.GetBytes(),
-		1,
-		testPort1,
-		testChannel1,
-		testPort2,
-		testChannel2,
-		math.MaxUint64,
-		0,
-	)
-	suite.Require().Equal(packetCommitment, channeltypes.CommitPacket(packet))
+	// get proof of packet commitment from chainA
+	packetKey := host.KeyPacketCommitment(packet.GetSourcePort(), packet.GetSourceChannel(), packet.GetSequence())
+	proof, proofHeight := suite.chainA.QueryProof(packetKey)
 
-	err = suite.chainB.App.IBCAccountKeeper.OnRecvPacket(suite.chainB.GetContext(), packet)
-	suite.Require().Nil(err)
+	nextAccNum := len(suite.chainB.App.AccountKeeper.GetAllAccounts(suite.chainB.GetContext()))
 
-	acc := suite.chainB.App.AccountKeeper.GetAccount(suite.chainB.GetContext(), suite.chainB.App.IBCAccountKeeper.GenerateAddress(types.GetIdentifier(testPort2, testChannel2), testSalt))
-	suite.Require().NotNil(acc, "ibc account is not registered on counterparty chain")
+	recvMsg := channeltypes.NewMsgRecvPacket(packet, proof, proofHeight, suite.chainB.SenderAccount.GetAddress())
+	err = suite.coordinator.SendMsg(suite.chainB, suite.chainA, channelA.ClientID, recvMsg)
+	suite.Require().NoError(err) // message committed
+
+	acc := suite.chainB.App.AccountKeeper.GetAccount(suite.chainB.GetContext(), suite.chainB.App.IBCAccountKeeper.GenerateAddress(types.GetIdentifier(channelB.PortID, channelB.ID), []byte("test")))
+	suite.Require().NotNil(acc)
+
+	suite.Require().Equal(nextAccNum, int(acc.GetAccountNumber()))
 }
 
 func (suite *KeeperTestSuite) TestRunTx() {
-	suite.initChannelAtoB()
+	// init connection and channel between chain A and chain B
+	_, _, connA, connB := suite.coordinator.SetupClientConnections(suite.chainA, suite.chainB, ibctmtypes.Tendermint)
+	channelA, channelB := suite.coordinator.CreateIBCAccountChannels(suite.chainA, suite.chainB, connA, connB, channeltypes.ORDERED)
 
-	err := suite.chainA.App.IBCAccountKeeper.TryRegisterIBCAccount(suite.chainA.GetContext(), testClientIDB, testPort1, testChannel1, testSalt)
-	suite.Require().Nil(err, "could not request creating ia account")
+	func() {
+		// assume that chain A try to register IBC Account to chain B
+		msg := &ibcaccountmocktypes.MsgTryRegisterIBCAccount{
+			SourcePort:    channelA.PortID,
+			SourceChannel: channelA.ID,
+			Salt:          []byte("test"),
+			TimeoutHeight: clienttypes.Height{
+				VersionNumber: 0,
+				VersionHeight: 100,
+			},
+			TimeoutTimestamp: 0,
+			Sender:           suite.chainA.SenderAccount.GetAddress(),
+		}
+		err := suite.coordinator.SendMsg(suite.chainA, suite.chainB, channelB.ClientID, msg)
+		suite.Require().NoError(err) // message committed
 
-	packetCommitment := suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 1)
-	suite.Require().Greater(len(packetCommitment), 0, "packet commitment is empty")
+		packetData := types.IBCAccountPacketData{
+			Type: types.Type_REGISTER,
+			Data: []byte("test"),
+		}
+		packet := channeltypes.NewPacket(packetData.GetBytes(), 1, channelA.PortID, channelA.ID, channelB.PortID, channelB.ID, clienttypes.NewHeight(0, 100), 0)
 
-	packet := channeltypes.NewPacket(
-		types.IBCAccountPacketData{Type: types.Type_REGISTER, Data: []byte(testSalt)}.GetBytes(),
-		1,
-		testPort1,
-		testChannel1,
-		testPort2,
-		testChannel2,
-		math.MaxUint64,
-		0,
-	)
-	suite.Require().Equal(packetCommitment, channeltypes.CommitPacket(packet))
+		// get proof of packet commitment from chainA
+		packetKey := host.KeyPacketCommitment(packet.GetSourcePort(), packet.GetSourceChannel(), packet.GetSequence())
+		proof, proofHeight := suite.chainA.QueryProof(packetKey)
 
-	err = suite.chainB.App.IBCAccountKeeper.OnRecvPacket(suite.chainB.GetContext(), packet)
-	suite.Require().Nil(err)
+		recvMsg := channeltypes.NewMsgRecvPacket(packet, proof, proofHeight, suite.chainB.SenderAccount.GetAddress())
+		err = suite.coordinator.SendMsg(suite.chainB, suite.chainA, channelA.ClientID, recvMsg)
+		suite.Require().NoError(err) // message committed
 
-	acc := suite.chainB.App.AccountKeeper.GetAccount(suite.chainB.GetContext(), suite.chainB.App.IBCAccountKeeper.GenerateAddress(types.GetIdentifier(testPort2, testChannel2), testSalt))
-	suite.Require().NotNil(acc, "ibc account is not registered on counterparty chain")
+		acc := suite.chainB.App.AccountKeeper.GetAccount(suite.chainB.GetContext(), suite.chainB.App.IBCAccountKeeper.GenerateAddress(types.GetIdentifier(channelB.PortID, channelB.ID), []byte("test")))
+		suite.Require().NotNil(acc)
+	}()
 
-	// Tokens to mint to ibc account.
-	mint := sdk.Coins{
-		sdk.Coin{
-			Denom:  "test",
-			Amount: sdk.NewInt(1000),
+	acc := suite.chainB.App.AccountKeeper.GetAccount(suite.chainB.GetContext(), suite.chainB.App.IBCAccountKeeper.GenerateAddress(types.GetIdentifier(channelB.PortID, channelB.ID), []byte("test")))
+
+	// mint the token to IBC account on Chain B
+	err := suite.chainB.App.BankKeeper.AddCoins(suite.chainB.GetContext(), acc.GetAddress(), sdk.Coins{sdk.Coin{
+		Denom:  "test",
+		Amount: sdk.NewInt(10000),
+	}})
+	suite.Require().NoError(err)
+
+	toAddress, err := sdk.AccAddressFromHex("0000000000000000000000000000000000000000")
+	suite.Require().NoError(err)
+	// try to run tx that sends the token from IBC account to other account
+	msg := &ibcaccountmocktypes.MsgTryRunTxMsgSend{
+		SourcePort:    channelA.PortID,
+		SourceChannel: channelA.ID,
+		TimeoutHeight: clienttypes.Height{
+			VersionNumber: 0,
+			VersionHeight: 100,
 		},
+		TimeoutTimestamp: 0,
+		FromAddress:      acc.GetAddress(),
+		ToAddress:        toAddress,
+		Amount: sdk.Coins{sdk.Coin{
+			Denom:  "test",
+			Amount: sdk.NewInt(5000),
+		}},
+		Sender: suite.chainA.SenderAccount.GetAddress(),
 	}
+	err = suite.coordinator.SendMsg(suite.chainA, suite.chainB, channelB.ClientID, msg)
+	suite.Require().NoError(err) // message committed
 
-	// Bal should be empty.
-	bal := suite.chainB.App.BankKeeper.GetAllBalances(suite.chainB.GetContext(), acc.GetAddress())
-	suite.Require().Equal(sdk.Coins{}, bal)
-
-	// Mint tokens.
-	_, err = suite.chainB.App.BankKeeper.AddCoins(suite.chainB.GetContext(), acc.GetAddress(), mint)
-	suite.Require().Nil(err)
-
-	bal = suite.chainB.App.BankKeeper.GetAllBalances(suite.chainB.GetContext(), acc.GetAddress())
-	suite.Require().Equal(mint, bal)
-
-	testAddress := suite.chainB.App.IBCAccountKeeper.GenerateAddress(types.GetIdentifier(testPort2, "otherchannel"), testSalt)
-	sendMsg := banktypes.NewMsgSend(acc.GetAddress(), testAddress, sdk.Coins{
-		sdk.Coin{
+	txBytes, err := ibcaccountkeeper.SerializeCosmosTx(suite.chainB.App.AppCodec(), suite.chainB.App.InterfaceRegistry())([]sdk.Msg{
+		banktypes.NewMsgSend(acc.GetAddress(), toAddress, sdk.Coins{sdk.Coin{
 			Denom:  "test",
-			Amount: sdk.NewInt(500),
-		},
+			Amount: sdk.NewInt(5000),
+		}}),
 	})
-	_, err = suite.chainA.App.IBCAccountKeeper.TryRunTx(suite.chainA.GetContext(), testPort1, testChannel1, testClientIDB, sendMsg)
-	suite.Require().Nil(err)
+	packetData := types.IBCAccountPacketData{
+		Type: types.Type_RUNTX,
+		Data: txBytes,
+	}
+	packet := channeltypes.NewPacket(packetData.GetBytes(), 2, channelA.PortID, channelA.ID, channelB.PortID, channelB.ID, clienttypes.NewHeight(0, 100), 0)
 
-	packetCommitment = suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 2)
-	suite.Require().Greater(len(packetCommitment), 0, "packet commitment is empty")
+	// get proof of packet commitment from chainA
+	packetKey := host.KeyPacketCommitment(packet.GetSourcePort(), packet.GetSourceChannel(), packet.GetSequence())
+	proof, proofHeight := suite.chainA.QueryProof(packetKey)
 
-	packetTxBytes, err := keeper.SerializeCosmosTx(suite.chainB.App.Codec())(sendMsg)
-	suite.Require().Nil(err)
-	packet = channeltypes.NewPacket(
-		types.IBCAccountPacketData{Type: types.Type_RUNTX, Data: packetTxBytes}.GetBytes(),
-		2,
-		testPort1,
-		testChannel1,
-		testPort2,
-		testChannel2,
-		math.MaxUint64,
-		0,
-	)
-	suite.Require().Equal(packetCommitment, channeltypes.CommitPacket(packet))
+	recvMsg := channeltypes.NewMsgRecvPacket(packet, proof, proofHeight, suite.chainB.SenderAccount.GetAddress())
+	err = suite.coordinator.SendMsg(suite.chainB, suite.chainA, channelA.ClientID, recvMsg)
+	suite.Require().NoError(err) // message committed
 
-	err = suite.chainB.App.IBCAccountKeeper.OnRecvPacket(suite.chainB.GetContext(), packet)
-	suite.Require().Nil(err)
-
-	// Bal should have been transfered.
-	bal = suite.chainB.App.BankKeeper.GetAllBalances(suite.chainB.GetContext(), acc.GetAddress())
-	suite.Require().Equal(sdk.Coins{
-		sdk.Coin{
-			Denom:  "test",
-			Amount: sdk.NewInt(500),
-		},
-	}, bal)
-
-	bal = suite.chainB.App.BankKeeper.GetAllBalances(suite.chainB.GetContext(), testAddress)
-	suite.Require().Equal(sdk.Coins{
-		sdk.Coin{
-			Denom:  "test",
-			Amount: sdk.NewInt(500),
-		},
-	}, bal)
-
-	// Test the case that msg is sent from not created by ibc account module.
-	sendMsg = banktypes.NewMsgSend(testAddress, acc.GetAddress(), sdk.Coins{
-		sdk.Coin{
-			Denom:  "test",
-			Amount: sdk.NewInt(500),
-		},
-	})
-
-	_, err = suite.chainA.App.IBCAccountKeeper.TryRunTx(suite.chainA.GetContext(), testPort1, testChannel1, testClientIDB, sendMsg)
-	suite.Require().Nil(err)
-
-	packetCommitment = suite.chainA.App.IBCKeeper.ChannelKeeper.GetPacketCommitment(suite.chainA.GetContext(), testPort1, testChannel1, 3)
-	suite.Require().Greater(len(packetCommitment), 0, "packet commitment is empty")
-
-	packetTxBytes, err = keeper.SerializeCosmosTx(suite.chainB.App.Codec())(sendMsg)
-	suite.Require().Nil(err)
-	packet = channeltypes.NewPacket(
-		types.IBCAccountPacketData{Type: types.Type_RUNTX, Data: packetTxBytes}.GetBytes(),
-		2,
-		testPort1,
-		testChannel1,
-		testPort2,
-		testChannel2,
-		math.MaxUint64,
-		0,
-	)
-	suite.Require().Equal(packetCommitment, channeltypes.CommitPacket(packet))
-
-	// Should fail if msg is sent from account not created by ibc account module.
-	err = suite.chainB.App.IBCAccountKeeper.OnRecvPacket(suite.chainB.GetContext(), packet)
-	suite.Require().NotNil(err)
-}
-
-func (suite *KeeperTestSuite) initChannelAtoB() {
-	capName := host.ChannelCapabilityPath(testPort1, testChannel1)
-
-	// Add counterparty info.
-	suite.chainA.App.IBCAccountKeeper.AddCounterpartyInfo(testClientIDB, keeper.CounterpartyInfo{
-		SerializeTx: keeper.SerializeCosmosTx(suite.chainB.App.Codec()),
-	})
-
-	// create channel capability from ibc scoped keeper and claim with ia scoped keeper
-	cap, err := suite.chainA.App.ScopedIBCKeeper.NewCapability(suite.chainA.GetContext(), capName)
-	suite.Require().Nil(err, "could not create capability")
-	err = suite.chainA.App.ScopedIBCAccountKeeper.ClaimCapability(suite.chainA.GetContext(), cap, capName)
-	suite.Require().Nil(err, "interchainaccount module could not claim capability")
-
-	// create client, and open conn/channel
-	err = suite.chainA.CreateClient(suite.chainB)
-	suite.Require().Nil(err, "could not create client")
-	suite.chainA.createConnection(testConnection, testConnection, testClientIDB, testClientIDA, connection.OPEN)
-	suite.chainA.createChannel(testPort1, testChannel1, testPort2, testChannel2, channeltypes.OPEN, channeltypes.ORDERED, testConnection)
-
-	initialSeq := uint64(1)
-	suite.chainA.App.IBCKeeper.ChannelKeeper.SetNextSequenceSend(suite.chainA.GetContext(), testPort1, testChannel1, initialSeq)
+	// check that the balance has been transfered
+	bal := suite.chainB.App.BankKeeper.GetBalance(suite.chainB.GetContext(), acc.GetAddress(), "test")
+	suite.Equal("5000", bal.Amount.String())
+	bal = suite.chainB.App.BankKeeper.GetBalance(suite.chainB.GetContext(), toAddress, "test")
+	suite.Equal("5000", bal.Amount.String())
 }

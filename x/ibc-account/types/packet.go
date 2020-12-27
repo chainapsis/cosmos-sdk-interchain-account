@@ -5,9 +5,9 @@ import (
 )
 
 func (packet IBCAccountPacketData) GetBytes() []byte {
-	return sdk.MustSortJSON(ModuleCdc.MustMarshalJSON(packet))
+	return sdk.MustSortJSON(ModuleCdc.MustMarshalJSON(&packet))
 }
 
 func (ack IBCAccountPacketAcknowledgement) GetBytes() []byte {
-	return sdk.MustSortJSON(ModuleCdc.MustMarshalJSON(ack))
+	return sdk.MustSortJSON(ModuleCdc.MustMarshalJSON(&ack))
 }

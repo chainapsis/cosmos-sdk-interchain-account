@@ -3,32 +3,19 @@ package keeper
 import (
 	"fmt"
 
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	"github.com/cosmos/cosmos-sdk/codec"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	capabilitykeeper "github.com/cosmos/cosmos-sdk/x/capability/keeper"
 	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
-	channel "github.com/cosmos/cosmos-sdk/x/ibc/04-channel"
-	channelexported "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
-	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
-
-	"github.com/cosmos/cosmos-sdk/codec"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	host "github.com/cosmos/cosmos-sdk/x/ibc/core/24-host"
 
 	"github.com/tendermint/tendermint/libs/log"
 
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
 )
 
-const (
-	// DefaultPacketTimeoutHeight is the default packet timeout height relative
-	// to the current block height. The timeout is disabled when set to 0.
-	DefaultPacketTimeoutHeight = 1000 // NOTE: in blocks
-
-	// DefaultPacketTimeoutTimestamp is the default packet timeout timestamp relative
-	// to the current block timestamp. The timeout is disabled when set to 0.
-	DefaultPacketTimeoutTimestamp = 0 // NOTE: in nanoseconds
-)
-
-func SerializeCosmosTx(codec *codec.Codec) func(data interface{}) ([]byte, error) {
+func SerializeCosmosTx(cdc codec.BinaryMarshaler, registry codectypes.InterfaceRegistry) func(data interface{}) ([]byte, error) {
 	return func(data interface{}) ([]byte, error) {
 		msgs := make([]sdk.Msg, 0)
 		switch data := data.(type) {
@@ -40,7 +27,25 @@ func SerializeCosmosTx(codec *codec.Codec) func(data interface{}) ([]byte, error
 			return nil, types.ErrInvalidOutgoingData
 		}
 
-		bz, err := codec.MarshalBinaryBare(msgs)
+		msgAnys := make([]*codectypes.Any, len(msgs))
+
+		for i, msg := range msgs {
+			var err error
+			msgAnys[i], err = codectypes.NewAnyWithValue(msg)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		txBody := &types.IBCTxBody{
+			Messages: msgAnys,
+		}
+
+		txRaw := &types.IBCTxRaw{
+			BodyBytes: cdc.MustMarshalBinaryBare(txBody),
+		}
+
+		bz, err := cdc.MarshalBinaryBare(txRaw)
 		if err != nil {
 			return nil, err
 		}
@@ -49,21 +54,13 @@ func SerializeCosmosTx(codec *codec.Codec) func(data interface{}) ([]byte, error
 	}
 }
 
-type CounterpartyInfo struct {
-	// This method used to marshal transaction for counterparty chain.
-	SerializeTx func(data interface{}) ([]byte, error)
-}
-
 // Keeper defines the IBC transfer keeper
 type Keeper struct {
 	storeKey sdk.StoreKey
-	cdc      codec.Marshaler
-
-	// TODO: Remove this field and use codec.Marshaler.
-	txCdc *codec.Codec
+	cdc      codec.BinaryMarshaler
 
 	// Key can be chain type which means what blockchain framework the host chain was built on or just direct chain id.
-	counterpartyInfos map[string]CounterpartyInfo
+	txEncoders map[string]types.TxEncoder
 
 	hook types.IBCAccountHooks
 
@@ -78,42 +75,38 @@ type Keeper struct {
 
 // NewKeeper creates a new IBC account Keeper instance
 func NewKeeper(
-	cdc codec.Marshaler, txCdc *codec.Codec, key sdk.StoreKey,
-	counterpartyInfos map[string]CounterpartyInfo, channelKeeper types.ChannelKeeper, portKeeper types.PortKeeper,
+	cdc codec.BinaryMarshaler, key sdk.StoreKey,
+	txEncoders map[string]types.TxEncoder, channelKeeper types.ChannelKeeper, portKeeper types.PortKeeper,
 	accountKeeper types.AccountKeeper, scopedKeeper capabilitykeeper.ScopedKeeper, router types.Router,
 ) Keeper {
 	return Keeper{
-		storeKey:          key,
-		txCdc:             txCdc,
-		cdc:               cdc,
-		counterpartyInfos: counterpartyInfos,
-		channelKeeper:     channelKeeper,
-		portKeeper:        portKeeper,
-		accountKeeper:     accountKeeper,
-		scopedKeeper:      scopedKeeper,
-		router:            router,
+		storeKey:      key,
+		cdc:           cdc,
+		txEncoders:    txEncoders,
+		channelKeeper: channelKeeper,
+		portKeeper:    portKeeper,
+		accountKeeper: accountKeeper,
+		scopedKeeper:  scopedKeeper,
+		router:        router,
 	}
 }
 
-func (k Keeper) AddCounterpartyInfo(typ string, info CounterpartyInfo) {
-	k.counterpartyInfos[typ] = info
+func (k Keeper) AddTxEncoder(typ string, txEncoder types.TxEncoder) error {
+	_, ok := k.txEncoders[typ]
+	if ok {
+		return types.ErrTxEncoderAlreadyRegistered
+	}
+	k.txEncoders[typ] = txEncoder
+	return nil
 }
 
-func (k Keeper) GetCounterpartyInfo(typ string) (CounterpartyInfo, bool) {
-	info, ok := k.counterpartyInfos[typ]
+func (k Keeper) GetTxEncoder(typ string) (types.TxEncoder, bool) {
+	info, ok := k.txEncoders[typ]
 	return info, ok
 }
 
 func (k Keeper) Logger(ctx sdk.Context) log.Logger {
 	return ctx.Logger().With("module", fmt.Sprintf("x/%s-%s", host.ModuleName, types.ModuleName))
-}
-
-func (k Keeper) PacketExecuted(ctx sdk.Context, packet channelexported.PacketI, acknowledgement []byte) error {
-	chanCap, ok := k.scopedKeeper.GetCapability(ctx, host.ChannelCapabilityPath(packet.GetDestPort(), packet.GetDestChannel()))
-	if !ok {
-		return sdkerrors.Wrap(channel.ErrChannelCapabilityNotFound, "channel capability could not be retrieved for packet")
-	}
-	return k.channelKeeper.PacketExecuted(ctx, chanCap, packet, acknowledgement)
 }
 
 // IsBound checks if the interchain account module is already bound to the desired port
@@ -133,7 +126,7 @@ func (k Keeper) BindPort(ctx sdk.Context, portID string) error {
 	return k.ClaimCapability(ctx, cap, host.PortPath(portID))
 }
 
-// GetPort returns the portID for the transfer module. Used in ExportGenesis
+// GetPort returns the portID for the ibc account module. Used in ExportGenesis
 func (k Keeper) GetPort(ctx sdk.Context) string {
 	store := ctx.KVStore(k.storeKey)
 	return string(store.Get([]byte(types.PortKey)))

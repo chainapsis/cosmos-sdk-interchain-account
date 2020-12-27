@@ -2,25 +2,23 @@ package types
 
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
-	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
-	channel "github.com/cosmos/cosmos-sdk/x/ibc/04-channel"
-	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
-func RegisterCodec(cdc *codec.Codec) {
-	cdc.RegisterConcrete(IBCAccountPacketData{}, "ibcaccount/IBCAccountPacketData", nil)
-	cdc.RegisterConcrete(IBCAccountPacketAcknowledgement{}, "ibcaccount/IBCAccountPacketAcknowledgement", nil)
+// RegisterLegacyAminoCodec registers the account interfaces and concrete types on the
+// provided LegacyAmino codec. These types are used for Amino JSON serialization
+func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
+	cdc.RegisterInterface((*IBCAccountI)(nil), nil)
+	cdc.RegisterConcrete(&IBCAccount{}, "ibc-account/IBCAccount", nil)
+}
+
+// RegisterInterface associates protoName with AccountI interface
+// and creates a registry of it's concrete implementations
+func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
+	registry.RegisterImplementations((*authtypes.AccountI)(nil), &IBCAccount{})
 }
 
 var (
-	amino = codec.New()
-
-	ModuleCdc = codec.NewHybridCodec(amino, cdctypes.NewInterfaceRegistry())
+	ModuleCdc = codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 )
-
-func init() {
-	RegisterCodec(amino)
-	channel.RegisterCodec(amino)
-	commitmenttypes.RegisterCodec(amino)
-	amino.Seal()
-}

@@ -1,71 +1,21 @@
 package keeper
 
 import (
-	"bytes"
 	"encoding/binary"
-	"math"
 
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
-	"github.com/cosmos/cosmos-sdk/store/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	channel "github.com/cosmos/cosmos-sdk/x/ibc/04-channel"
-	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
-	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
+	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
+	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
+	host "github.com/cosmos/cosmos-sdk/x/ibc/core/24-host"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 )
-
-// RegisterIBCAccount performs registering IBC account.
-// It will generate the deterministic address by hashing {sourcePort}/{sourceChannel}{salt}.
-func (k Keeper) registerIBCAccount(
-	ctx sdk.Context,
-	destPort,
-	destChannel,
-	salt string,
-) error {
-	identifier := types.GetIdentifier(destPort, destChannel)
-	address := k.GenerateAddress(identifier, salt)
-	err := k.createAccount(ctx, address, identifier)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Create the account if an account with the same address does not exist.
-// It will save the address and matched identifier.
-func (k Keeper) createAccount(ctx sdk.Context, address sdk.AccAddress, identifier string) error {
-	account := k.accountKeeper.GetAccount(ctx, address)
-	// TODO: Discuss the vulnerabilities when creating a new account only if the old account does not exist
-	// Attackers can interrupt creating accounts by sending some assets before the packet is delivered.
-	// So it is needed to check that the account is not created from users.
-	// Returns an error only if the account was created by other chain.
-	// We need to discuss how we can judge this case.
-	if account != nil {
-		return sdkerrors.Wrap(types.ErrAccountAlreadyExist, account.String())
-	}
-	// Set account's address if account is nil
-	account = k.accountKeeper.NewAccountWithAddress(ctx, address)
-	k.accountKeeper.SetAccount(ctx, account)
-
-	store := ctx.KVStore(k.storeKey)
-	store = prefix.NewStore(store, types.KeyPrefixRegisteredAccount)
-	// Save the identifier for each address to check where the interchain account is made from.
-	store.Set(address, []byte(identifier))
-
-	return nil
-}
-
-// Determine account's address that will be created.
-func (k Keeper) GenerateAddress(identifier string, salt string) []byte {
-	return tmhash.SumTruncated([]byte(identifier + salt))
-}
 
 // TryRegisterIBCAccount try to register IBC account to source channel.
 // If no source channel exists or doesn't have capability, it will return error.
 // Salt is used to generate deterministic address.
-func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, sourcePort, sourceChannel, salt string) error {
+func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, sourcePort, sourceChannel string, salt []byte, timeoutHeight clienttypes.Height, timeoutTimestamp uint64) error {
 	sourceChannelEnd, found := k.channelKeeper.GetChannel(ctx, sourcePort, sourceChannel)
 	if !found {
 		return sdkerrors.Wrap(channeltypes.ErrChannelNotFound, sourceChannel)
@@ -82,12 +32,12 @@ func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, sourcePort, sourceChannel
 	// get the next sequence
 	sequence, found := k.channelKeeper.GetNextSequenceSend(ctx, sourcePort, sourceChannel)
 	if !found {
-		return channel.ErrSequenceSendNotFound
+		return channeltypes.ErrSequenceSendNotFound
 	}
 
 	packetData := types.IBCAccountPacketData{
 		Type: types.Type_REGISTER,
-		Data: []byte(salt),
+		Data: salt,
 	}
 
 	// TODO: Add timeout height and timestamp
@@ -98,15 +48,15 @@ func (k Keeper) TryRegisterIBCAccount(ctx sdk.Context, sourcePort, sourceChannel
 		sourceChannel,
 		destinationPort,
 		destinationChannel,
-		math.MaxUint64,
-		0,
+		timeoutHeight,
+		timeoutTimestamp,
 	)
 
 	return k.channelKeeper.SendPacket(ctx, channelCap, packet)
 }
 
 // TryRunTx try to send messages to source channel.
-func (k Keeper) TryRunTx(ctx sdk.Context, sourcePort, sourceChannel, chainID string, data interface{}) ([]byte, error) {
+func (k Keeper) TryRunTx(ctx sdk.Context, sourcePort, sourceChannel, typ string, data interface{}, timeoutHeight clienttypes.Height, timeoutTimestamp uint64) ([]byte, error) {
 	sourceChannelEnd, found := k.channelKeeper.GetChannel(ctx, sourcePort, sourceChannel)
 	if !found {
 		return []byte{}, sdkerrors.Wrap(channeltypes.ErrChannelNotFound, sourceChannel)
@@ -115,7 +65,7 @@ func (k Keeper) TryRunTx(ctx sdk.Context, sourcePort, sourceChannel, chainID str
 	destinationPort := sourceChannelEnd.GetCounterparty().GetPortID()
 	destinationChannel := sourceChannelEnd.GetCounterparty().GetChannelID()
 
-	return k.createOutgoingPacket(ctx, sourcePort, sourceChannel, destinationPort, destinationChannel, chainID, data)
+	return k.createOutgoingPacket(ctx, sourcePort, sourceChannel, destinationPort, destinationChannel, typ, data, timeoutHeight, timeoutTimestamp)
 }
 
 func (k Keeper) createOutgoingPacket(
@@ -126,12 +76,14 @@ func (k Keeper) createOutgoingPacket(
 	destinationChannel,
 	typ string,
 	data interface{},
+	timeoutHeight clienttypes.Height,
+	timeoutTimestamp uint64,
 ) ([]byte, error) {
 	if data == nil {
 		return []byte{}, types.ErrInvalidOutgoingData
 	}
 
-	counterpartyInfo, ok := k.GetCounterpartyInfo(typ)
+	txEncoder, ok := k.GetTxEncoder(typ)
 	if !ok {
 		return []byte{}, types.ErrUnsupportedChain
 	}
@@ -147,7 +99,7 @@ func (k Keeper) createOutgoingPacket(
 		return []byte{}, types.ErrInvalidOutgoingData
 	}
 
-	txBytes, err := counterpartyInfo.SerializeTx(msgs)
+	txBytes, err := txEncoder(msgs)
 	if err != nil {
 		return []byte{}, sdkerrors.Wrap(err, "invalid packet data or codec")
 	}
@@ -160,7 +112,7 @@ func (k Keeper) createOutgoingPacket(
 	// get the next sequence
 	sequence, found := k.channelKeeper.GetNextSequenceSend(ctx, sourcePort, sourceChannel)
 	if !found {
-		return []byte{}, channel.ErrSequenceSendNotFound
+		return []byte{}, channeltypes.ErrSequenceSendNotFound
 	}
 
 	packetData := types.IBCAccountPacketData{
@@ -169,25 +121,47 @@ func (k Keeper) createOutgoingPacket(
 	}
 
 	// TODO: Add timeout height and timestamp
-	packet := channel.NewPacket(
+	packet := channeltypes.NewPacket(
 		packetData.GetBytes(),
 		sequence,
 		sourcePort,
 		sourceChannel,
 		destinationPort,
 		destinationChannel,
-		math.MaxUint64,
-		0,
+		timeoutHeight,
+		timeoutTimestamp,
 	)
 
 	return k.ComputeVirtualTxHash(packetData.Data, packet.Sequence), k.channelKeeper.SendPacket(ctx, channelCap, packet)
 }
 
 func (k Keeper) DeserializeTx(_ sdk.Context, txBytes []byte) ([]sdk.Msg, error) {
-	var msgs []sdk.Msg
+	var txRaw types.IBCTxRaw
 
-	err := k.txCdc.UnmarshalBinaryBare(txBytes, &msgs)
-	return msgs, err
+	err := k.cdc.UnmarshalBinaryBare(txBytes, &txRaw)
+	if err != nil {
+		return nil, err
+	}
+
+	var txBody types.IBCTxBody
+
+	err = k.cdc.UnmarshalBinaryBare(txRaw.BodyBytes, &txBody)
+	if err != nil {
+		return nil, err
+	}
+
+	anys := txBody.Messages
+	res := make([]sdk.Msg, len(anys))
+	for i, any := range anys {
+		var msg sdk.Msg
+		err := k.cdc.UnpackAny(any, &msg)
+		if err != nil {
+			return nil, err
+		}
+		res[i] = msg
+	}
+
+	return res, nil
 }
 
 func (k Keeper) runTx(ctx sdk.Context, destPort, destChannel string, msgs []sdk.Msg) error {
@@ -245,13 +219,19 @@ func (k Keeper) AuthenticateTx(ctx sdk.Context, msgs []sdk.Msg, identifier strin
 		}
 	}
 
-	store := ctx.KVStore(k.storeKey)
-	store = prefix.NewStore(store, types.KeyPrefixRegisteredAccount)
-
 	for _, signer := range signers {
 		// Check where the interchain account is made from.
-		path := store.Get(signer)
-		if !bytes.Equal(path, []byte(identifier)) {
+		account := k.accountKeeper.GetAccount(ctx, signer)
+		if account == nil {
+			return sdkerrors.ErrUnauthorized
+		}
+
+		ibcAccount, ok := account.(types.IBCAccountI)
+		if !ok {
+			return sdkerrors.ErrUnauthorized
+		}
+
+		if types.GetIdentifier(ibcAccount.GetDestinationPort(), ibcAccount.GetDestinationChannel()) != identifier {
 			return sdkerrors.ErrUnauthorized
 		}
 	}
@@ -286,7 +266,7 @@ func (k Keeper) OnRecvPacket(ctx sdk.Context, packet channeltypes.Packet) error 
 
 	switch data.Type {
 	case types.Type_REGISTER:
-		err := k.registerIBCAccount(ctx, packet.DestinationPort, packet.DestinationChannel, string(data.Data))
+		_, err := k.registerIBCAccount(ctx, packet.SourcePort, packet.SourceChannel, packet.DestinationPort, packet.DestinationChannel, data.Data)
 		if err != nil {
 			return err
 		}
@@ -314,7 +294,7 @@ func (k Keeper) OnAcknowledgementPacket(ctx sdk.Context, packet channeltypes.Pac
 	case types.Type_REGISTER:
 		if ack.Code == 0 {
 			if k.hook != nil {
-				k.hook.OnAccountCreated(ctx, packet.SourcePort, packet.SourceChannel, k.GenerateAddress(types.GetIdentifier(packet.DestinationPort, packet.DestinationChannel), string(data.Data)))
+				k.hook.OnAccountCreated(ctx, packet.SourcePort, packet.SourceChannel, k.GenerateAddress(types.GetIdentifier(packet.DestinationPort, packet.DestinationChannel), data.Data))
 			}
 		}
 		return nil

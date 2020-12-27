@@ -1,14 +1,17 @@
 package ibc_account
 
 import (
+	"context"
 	"encoding/json"
 
-	"github.com/gogo/protobuf/grpc"
+	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/client/cli"
+
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 
 	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
 
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
+	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 
@@ -16,17 +19,17 @@ import (
 	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
-	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
-	port "github.com/cosmos/cosmos-sdk/x/ibc/05-port"
+	porttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/05-port/types"
 	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
 )
 
 var (
 	_ module.AppModule      = AppModule{}
-	_ port.IBCModule        = AppModule{}
+	_ porttypes.IBCModule   = AppModule{}
 	_ module.AppModuleBasic = AppModuleBasic{}
 )
 
@@ -36,15 +39,16 @@ func (AppModuleBasic) Name() string {
 	return types.ModuleName
 }
 
-func (AppModuleBasic) RegisterCodec(cdc *codec.Codec) {
-	types.RegisterCodec(cdc)
+// RegisterLegacyAminoCodec implements AppModuleBasic interface
+func (AppModuleBasic) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
+	types.RegisterLegacyAminoCodec(cdc)
 }
 
 func (AppModuleBasic) DefaultGenesis(cdc codec.JSONMarshaler) json.RawMessage {
 	return cdc.MustMarshalJSON(types.DefaultGenesis())
 }
 
-func (AppModuleBasic) ValidateGenesis(_ codec.JSONMarshaler, _ json.RawMessage) error {
+func (AppModuleBasic) ValidateGenesis(cdc codec.JSONMarshaler, config client.TxEncodingConfig, bz json.RawMessage) error {
 	return nil
 }
 
@@ -52,19 +56,23 @@ func (AppModuleBasic) RegisterRESTRoutes(ctx client.Context, rtr *mux.Router) {
 	// noop
 }
 
-func (AppModuleBasic) GetTxCmd(clientCtx client.Context) *cobra.Command {
+func (AppModuleBasic) GetTxCmd() *cobra.Command {
 	// noop
 	return nil
 }
 
-func (AppModuleBasic) GetQueryCmd(clientCtx client.Context) *cobra.Command {
-	// noop
-	return nil
+func (AppModuleBasic) GetQueryCmd() *cobra.Command {
+	return cli.GetQueryCmd()
 }
 
-// RegisterInterfaceTypes registers module concrete types into protobuf Any.
-func (AppModuleBasic) RegisterInterfaceTypes(registry cdctypes.InterfaceRegistry) {
-	// noop
+// RegisterInterfaces registers module concrete types into protobuf Any.
+func (AppModuleBasic) RegisterInterfaces(registry codectypes.InterfaceRegistry) {
+	types.RegisterInterfaces(registry)
+}
+
+// RegisterGRPCGatewayRoutes registers the gRPC Gateway routes for the ibc-account module.
+func (AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *runtime.ServeMux) {
+	types.RegisterQueryHandlerClient(context.Background(), mux, types.NewQueryClient(clientCtx))
 }
 
 type AppModule struct {
@@ -79,7 +87,7 @@ func NewAppModule(k keeper.Keeper) AppModule {
 }
 
 func (AppModule) RegisterInvariants(ir sdk.InvariantRegistry) {
-	// noop
+	// TODO
 }
 
 func (AppModule) Route() sdk.Route {
@@ -94,11 +102,16 @@ func (AppModule) QuerierRoute() string {
 	return types.QuerierRoute
 }
 
-func (AppModule) NewQuerierHandler() sdk.Querier {
-	return nil
+// LegacyQuerierHandler implements the AppModule interface
+func (am AppModule) LegacyQuerierHandler(legacyQuerierCdc *codec.LegacyAmino) sdk.Querier {
+	return keeper.NewQuerier(am.keeper, legacyQuerierCdc)
 }
 
-func (am AppModule) RegisterQueryService(grpc.Server) {}
+// RegisterServices registers a GRPC query service to respond to the
+// module-specific GRPC queries.
+func (am AppModule) RegisterServices(cfg module.Configurator) {
+	types.RegisterQueryServer(cfg.QueryServer(), am.keeper)
+}
 
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONMarshaler, data json.RawMessage) []abci.ValidatorUpdate {
 	var genesisState types.GenesisState
@@ -213,12 +226,9 @@ func (am AppModule) OnRecvPacket(
 			acknowledgement.Error = err.Error()
 		}
 
-		if err := am.keeper.PacketExecuted(ctx, packet, acknowledgement.GetBytes()); err != nil {
-			return nil, nil, err
-		}
 		return &sdk.Result{
 			Events: ctx.EventManager().Events().ToABCIEvents(),
-		}, nil, nil
+		}, acknowledgement.GetBytes(), nil
 	case types.Type_RUNTX:
 		acknowledgement := types.IBCAccountPacketAcknowledgement{
 			ChainID: ctx.ChainID(),
