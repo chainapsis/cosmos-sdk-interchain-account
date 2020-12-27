@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/chainapsis/cosmos-sdk-interchain-account/x/ibc-account/client/cli"
+
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 
 	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
@@ -60,8 +62,7 @@ func (AppModuleBasic) GetTxCmd() *cobra.Command {
 }
 
 func (AppModuleBasic) GetQueryCmd() *cobra.Command {
-	// noop
-	return nil
+	return cli.GetQueryCmd()
 }
 
 // RegisterInterfaces registers module concrete types into protobuf Any.
@@ -102,8 +103,8 @@ func (AppModule) QuerierRoute() string {
 }
 
 // LegacyQuerierHandler implements the AppModule interface
-func (am AppModule) LegacyQuerierHandler(*codec.LegacyAmino) sdk.Querier {
-	return nil
+func (am AppModule) LegacyQuerierHandler(legacyQuerierCdc *codec.LegacyAmino) sdk.Querier {
+	return keeper.NewQuerier(am.keeper, legacyQuerierCdc)
 }
 
 // RegisterServices registers a GRPC query service to respond to the
