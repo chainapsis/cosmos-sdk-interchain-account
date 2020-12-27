@@ -23,7 +23,7 @@ const (
 	icaImport = "github.com/chainapsis/cosmos-sdk-interchain-account"
 	apppkg    = "app"
 	// moduleDir        = "x"
-	icaVersionCommit = "daba1321259a442f929f82738b9a9d632eeb4351"
+	// icaVersionCommit = "daba1321259a442f929f82738b9a9d632eeb4351"
 
 	// Placeholders in Stargate app.go
 	placeholderSgAppModuleImport      = "// this line is used by starport scaffolding # stargate/app/moduleImport"
@@ -231,7 +231,7 @@ func installICA() error {
 				step.Exec(
 					"go",
 					"get",
-					icaImport+"@"+icaVersionCommit,
+					icaImport,
 				),
 			),
 		)
