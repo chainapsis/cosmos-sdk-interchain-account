@@ -17,6 +17,8 @@ jobs:
       - name: Setup Vuepress
         run: npm install && npm run build
         working-directory: ./docs
+        env:
+          VUEPRESS_BASE: /cosmos-sdk-interchain-account/
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
