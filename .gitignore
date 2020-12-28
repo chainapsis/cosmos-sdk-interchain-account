@@ -1,4 +1,15 @@
 .idea
 .vscode
 .DS_Store
+
+# Build
 vendor
+build
+docs/_build
+docs/tutorial
+docs/node_modules
+docs/modules
+dist
+tools-stamp
+buf-stamp
+artifacts
