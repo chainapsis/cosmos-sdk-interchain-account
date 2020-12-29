@@ -6,7 +6,7 @@ Interchain Accounts currently experimentally supports [Starport v0.13.1](https:/
 
 ### 1. Start two chains with Starport
 
-Open two [Gitpod](https://www.notion.so/Test-with-starport-d733ae61daeb44e8ad814af41befc1ad) workspaces to start two Starport chains `foo` and `bar`.
+Open two [Gitpod](https://gitpod.io/#https://github.com/chainapsis/cosmos-sdk-interchain-account) workspaces (Create fresh workspace → create) to start two instances Starport chains: `foo` and `bar`.
 
 **Workspace 1**
 
@@ -29,7 +29,7 @@ cd bar
 **Workspace 1/2**
 
 ```jsx
-starport-ica module import 
+starport-ica module import
 starport-ica module import mock
 ```
 
@@ -55,9 +55,11 @@ After bootstrapping each chain, each workspace terminal will display the relayer
 
 Head over to Workspace 2 and open a new terminal window. Input the following code to add the IBC connected chain. Make sure to use the relayer information shown in step 4 instead of the value provided in the example.
 
+**Workspace 2**
+
 ```jsx
 cd ../bar
-starport chain add eyJDaGFpbklEIjoiYmFyIiwiTW5lbW9uaWMiOiJmcm9zdCByYXpvciBoYWxmIGxhdW5kcnkgcHJvZml0IHdpc2UgdG9uZSBibHVzaCBzdXJnZSBrZWVwIHRvZ2V0aGVyIHNsaWNlIHlvdXRoIHRydXRoIGVubGlzdCBjdXBib2FyZCBhYnNvcmIgc2VlZCBzZXJpZXMgZG91YmxlIHZpbGxhZ2UgdG9uZ3VlIGZsYXNoIGdvcmlsbGEiLCJSUENBZGRyZXNzIjoiaHR0cHM6Ly8yNjY1Ny1jNzllNDk2ZC1kZDk4LTQ4MWQtOTlmZi1jZGQ4OTA2NWQ4MWIud3MtZXUwMS5naXRwb2QuaW86NDQzIn0
+starport chain add {workspace1-relayer-info}
 ```
 
 ### 6. Modify the configuration
@@ -65,6 +67,8 @@ starport chain add eyJDaGFpbklEIjoiYmFyIiwiTW5lbW9uaWMiOiJmcm9zdCByYXpvciBoYWxmI
 At this stage, IBC transfers connections are open. However, as Starport currently only natively supports IBC transfers we need to change the relayer configuration.
 
 Refer to the bar-foo IBC path by checking the `config.yaml` file as follows:
+
+**Workspace 2**
 
 ```jsx
 vi ~/.relayer/config/config.yaml
@@ -123,6 +127,8 @@ rly tx relay-acknowledgements bar-foo-ica
 
 Now let's check if the IBC account has been registered on chain `foo`.
 
+Open a new terminal window in workspace 1
+
 Use the `src.channel-id` in the relayer's `config.yaml` for the next command.
 
 **Workspace 1**
@@ -164,7 +170,9 @@ rly tx relay-packets bar-foo-ica
 rly tx relay-acknowledgements bar-foo-ica
 ```
 
-Check the balance of the interchain account on chain `bar`.
+Check the balance of the interchain account on chain `foo`.
+
+**Workspace 1**
 
 ```bash
 food q bank balances {ibc_account_address}
