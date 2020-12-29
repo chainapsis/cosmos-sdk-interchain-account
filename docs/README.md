@@ -3,8 +3,8 @@ layout: homepage
 title: Cosmos IBC Account Documentation
 description: TODO
 sections:
-  - title: How to test on Starport
-    desc: Test IBC Account with Starport
+  - title: Testing ICA with Starport
+    desc: Bootstrap an Interchain Accounts Testnet using Starport
     icon: specifications
     url: /starport/
 stack:

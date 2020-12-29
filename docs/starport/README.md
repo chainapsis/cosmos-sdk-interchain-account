@@ -1,4 +1,4 @@
-# Interchain Accounts Starport Documentation
+# Bootstrap an Interchain Accounts Testnet using Starport
 
 Interchain Accounts currently experimentally supports [Starport v0.13.1](https://github.com/tendermint/starport/releases/tag/v0.13.1). However, it should be noted that stability is not guaranteed as the module import functionality is an experimental feature.
 

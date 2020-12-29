@@ -27,31 +27,13 @@ module.exports = {
     ['link', { rel: "apple-touch-icon-precomposed", href: "/apple-touch-icon-precomposed.png" }],
   ],
   themeConfig: {
-    repo: "cosmos/cosmos-sdk",
-    docsRepo: "cosmos/cosmos-sdk",
+    repo: "chainapsis/cosmos-sdk-interchain-account",
+    docsRepo: "chainapsis/cosmos-sdk-interchain-account",
     docsDir: "docs",
     editLinks: true,
     label: "sdk",
-    algolia: {
-      id: "BH4D9OD16A",
-      key: "ac317234e6a42074175369b2f42e9754",
-      index: "cosmos-sdk"
-    },
-    versions: [
-      {
-        "label": "v0.39",
-        "key": "v0.39"
-      },
-      {
-        "label": "master",
-        "key": "master"
-      }
-    ],
-    topbar: {
-      banner: true
-    },
     sidebar: { 
-      auto: true,
+      auto: false,
       nav: [
         {
           title: "Using the SDK",
@@ -60,6 +42,16 @@ module.exports = {
               title: "Modules",
               directory: true,
               path: "/modules"
+            }
+          ]
+        },
+        {
+          title: "Starport",
+          children: [
+            {
+              title: "Bootstrap",
+              directory: true,
+              path: "/starport"
             }
           ]
         },
