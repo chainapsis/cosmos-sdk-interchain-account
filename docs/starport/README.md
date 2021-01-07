@@ -74,26 +74,64 @@ Refer to the bar-foo IBC path by checking the `config.yaml` file as follows:
 vi ~/.relayer/config/config.yaml
 ```
 
-Manually add a new path by adding the following information (Note that the `client-id` can be reused, but the `connection-id` and the `channel-id` must be different:
+Manually add a new path by appending the following example path information underneath the existing `bar-foo` path (Note that the `client-id` and `connection-id` doesn't have to be changed from the example below, but you must change the `channel-id` name):
 
 ```jsx
-bar-foo-ica:
+global:
+  timeout: 10s
+  lite-cache-size: 20
+chains:
+- key: testkey
+  chain-id: bar
+  rpc-addr: https://26657-b444783c-780f-4b19-ad73-aa02cf4309df.ws-us03.gitpod.io:443
+  account-prefix: cosmos
+  gas-adjustment: 1.5
+  trusting-period: 336h
+- key: testkey
+  chain-id: foo
+  rpc-addr: https://26657-e8783cc5-17eb-44b5-990c-584a9705271e.ws-us03.gitpod.io:443
+  account-prefix: cosmos
+  gas-adjustment: 1.5
+  trusting-period: 336h
+paths:
+  bar-foo:
     src:
-        chain-id: bar
-        client-id: 1599fbea-43a0-4e8b-9c04-3f7e5cd11f94
-        connection-id: 1f397527-e94e-4362-90cc-bc58e5aabffd
-        channel-id: 156b2f35-eabe-4141-8390-d3037133c0c3
-        port-id: ibcaccount
-        order: ordered
-        version: ics27-1
+      chain-id: bar
+      client-id: b4f6056a-1344-4e5d-9d20-93ea896dfb6c
+      connection-id: f3cab589-db3e-4e19-8108-4ea4c39a32f7
+      channel-id: test
+      port-id: transfer
+      order: unordered
+      version: ics20-1
     dst:
-        chain-id: foo
-        client-id: 15da2512-e2b3-4607-8355-74c994925cc9
-        connection-id: 1f4c0fc3-0479-43a7-84c4-21d602c7ed98
-        channel-id: 1568b97e-51f3-4cb6-af63-afa2404db1a5
-        port-id: ibcaccount
-        order: ordered
-        version: ics27-1
+      chain-id: foo
+      client-id: 75284422-ec2a-447d-9764-c59fdc744e1a
+      connection-id: e683f7bb-a49b-4c97-83a5-d342ad17d28e
+      channel-id: test
+      port-id: transfer
+      order: unordered
+      version: ics20-1
+    strategy:
+      type: naive
+//append the bar-foo-ica path information as shown here
+//but change the channel-id
+  bar-foo-ica:
+    src:
+      chain-id: bar
+      client-id: 1599fbea-43a0-4e8b-9c04-3f7e5cd11f94
+      connection-id: 1f397527-e94e-4362-90cc-bc58e5aabffd
+      channel-id: {your-channel-id-name}
+      port-id: ibcaccount
+      order: ordered
+      version: ics27-1
+    dst:
+      chain-id: foo
+      client-id: 15da2512-e2b3-4607-8355-74c994925cc9
+      connection-id: 1f4c0fc3-0479-43a7-84c4-21d602c7ed98
+      channel-id: {your-channel-id-name}
+      port-id: ibcaccount
+      order: ordered
+      version: ics27-1
     strategy:
         type: naive
 ```
