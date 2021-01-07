@@ -31,6 +31,9 @@ module.exports = {
     docsRepo: "chainapsis/cosmos-sdk-interchain-account",
     docsDir: "docs",
     label: "sdk",
+    topbar: {
+      banner: false
+    },
     sidebar: { 
       auto: false,
       nav: [
@@ -55,9 +58,6 @@ module.exports = {
           ]
         }
       ]
-    },
-    gutter: {},
-    footer: {}
-  },
-  plugins: []
+    }
+  }
 };
