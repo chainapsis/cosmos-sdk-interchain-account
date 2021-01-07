@@ -1,7 +1,7 @@
 <!--
 layout: homepage
 title: Cosmos IBC Account Documentation
-description: TODO
+description: Implemented based on the ICS27 specificaion, IBC accounts allow a remote, IBC-connected source blockchain to send an arbitrary transaction to be executed on the destination blockchain.
 sections:
   - title: Testing ICA with Starport
     desc: Bootstrap an Interchain Accounts Testnet using Starport
