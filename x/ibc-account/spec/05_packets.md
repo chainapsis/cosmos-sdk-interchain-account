@@ -4,7 +4,7 @@ order: 3
 
 # Packets
 
-```go
+```proto
 message IBCTxRaw {
     bytes body_bytes = 1;
 }
