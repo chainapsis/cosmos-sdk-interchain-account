@@ -29,7 +29,7 @@ The router is used to delegate the process of handling the message to a module. 
 
 ### IBC Packets
 
-```
+```go
 
 enum Type {
     REGISTER = 0;
