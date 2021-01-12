@@ -6,11 +6,11 @@ Interchain Accounts currently experimentally supports [Starport v0.13.1](https:/
 
 ### 1. Start two chains with Starport
 
-Open two [Gitpod](https://gitpod.io/#https://github.com/chainapsis/cosmos-sdk-interchain-account) workspaces (Create fresh workspace → create) to start two instances Starport chains: `foo` and `bar`.
+Open two [Gitpod](https://gitpod.io/#https://github.com/chainapsis/cosmos-sdk-interchain-account) workspaces (Create fresh workspace → create) to start two instances of Starport chains: `foo` and `bar`.
 
 **Workspace 1**
 
-```jsx
+```bash
 starport app github.com/foo/foo --sdk-version stargate
 
 cd foo
@@ -18,7 +18,7 @@ cd foo
 
 **Workspace 2**
 
-```jsx
+```bash
 starport app github.com/bar/bar --sdk-version stargate
 
 cd bar
@@ -28,7 +28,7 @@ cd bar
 
 **Workspace 1/2**
 
-```jsx
+```bash
 starport-ica module import
 starport-ica module import mock
 ```
@@ -37,7 +37,7 @@ starport-ica module import mock
 
 **Workspace 1/2**
 
-```jsx
+```bash
 starport serve
 ```
 
@@ -47,7 +47,7 @@ After bootstrapping each chain, each workspace terminal will display the relayer
 
 **Workspace 1/2 Console**
 
-```jsx
+```bash
 ✨ Relayer info: eyJDaGFpbklEIjoiYmFyIiwiTW5lbW9uaWMiOiJmcm9zdCByYXpvciBoYWxmIGxhdW5kcnkgcHJvZml0IHdpc2UgdG9uZSBibHVzaCBzdXJnZSBrZWVwIHRvZ2V0aGVyIHNsaWNlIHlvdXRoIHRydXRoIGVubGlzdCBjdXBib2FyZCBhYnNvcmIgc2VlZCBzZXJpZXMgZG91YmxlIHZpbGxhZ2UgdG9uZ3VlIGZsYXNoIGdvcmlsbGEiLCJSUENBZGRyZXNzIjoiaHR0cHM6Ly8yNjY1Ny1jNzllNDk2ZC1kZDk4LTQ4MWQtOTlmZi1jZGQ4OTA2NWQ4MWIud3MtZXUwMS5naXRwb2QuaW86NDQzIn0
 ```
 
@@ -57,7 +57,7 @@ Head over to Workspace 2 and open a new terminal window. Input the following cod
 
 **Workspace 2**
 
-```jsx
+```bash
 cd ../bar
 starport chain add {workspace1-relayer-info}
 ```
@@ -70,13 +70,13 @@ Refer to the bar-foo IBC path by checking the `config.yaml` file as follows:
 
 **Workspace 2**
 
-```jsx
+```bash
 vi ~/.relayer/config/config.yaml
 ```
 
 Manually add a new path by appending the following example path information underneath the existing `bar-foo` path (Note that the `client-id` and `connection-id` doesn't have to be changed from the example below, but you must change the `channel-id` name):
 
-```jsx
+```yaml
 global:
   timeout: 10s
   lite-cache-size: 20
@@ -138,7 +138,7 @@ paths:
 
 Link the paths:
 
-```jsx
+```bash
 rly tx link bar-foo-ica
 ```
 
@@ -150,7 +150,7 @@ First, you need to register an IBCAccount on chain `foo` that chain `bar` manage
 
 **Workspace 2**
 
-```jsx
+```bash
 bard tx ibcaccount register ibcaccount {dst.channel-id} test --from bar --absolute-timeouts --packet-timeout-height "0-1000000" --packet-timeout-timestamp 0
 ```
 
@@ -158,7 +158,7 @@ Now you can use the relayer to send over the packet information to the chain tha
 
 **Workspace 2**
 
-```jsx
+```bash
 rly tx relay-packets bar-foo-ica
 rly tx relay-acknowledgements bar-foo-ica
 ```
