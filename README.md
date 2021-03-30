@@ -1,3 +1,6 @@
+### Note: ⚠️ Interchain Accounts is now being developed on [cosmos/interchain-account](https://github.com/cosmos/interchain-account)
+This repository has now been archived. Please check the latest development progress at [cosmos/interchain-account](https://github.com/cosmos/interchain-account).
+
 # Interchain Accounts
 
 > Interchain accounts allows a IBC-connected foreign blockchain to 
